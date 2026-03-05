@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Finance Importer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@300;400;600&family=JetBrains+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #F7F5F0; --surface: #FFFFFF; --surface-2: #F0EDE6; --border: #E2DDD6;
+    --text: #1C1917; --text-2: #78716C; --text-3: #A8A29E;
+    --accent: #16A34A; --accent-light: #DCFCE7; --accent-dark: #15803D;
+    --warn: #D97706; --warn-light: #FEF3C7;
+    --danger: #DC2626; --danger-light: #FEE2E2;
+    --income: #0369A1; --income-light: #E0F2FE;
+    --shadow: 0 1px 3px rgba(0,0,0,.06), 0 4px 16px rgba(0,0,0,.04);
+    --radius: 12px; --radius-sm: 8px;
+  }
+  body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; font-size: 15px; line-height: 1.6; }
+
+  header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 2rem; display: flex; align-items: center; justify-content: space-between; height: 64px; position: sticky; top: 0; z-index: 100; }
+  .logo { display: flex; align-items: baseline; gap: 10px; }
+  .logo-word { font-family: 'Crimson Pro', serif; font-size: 1.5rem; font-weight: 600; letter-spacing: -.02em; }
+  .logo-sub { font-size: .75rem; font-weight: 500; color: var(--text-3); letter-spacing: .08em; text-transform: uppercase; }
+  .status-pill { display: flex; align-items: center; gap: 6px; font-size: .75rem; font-weight: 500; color: var(--text-2); }
+  .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-3); transition: background .3s; }
+  .status-dot.ok { background: var(--accent); } .status-dot.err { background: var(--danger); }
+
+  main { max-width: 860px; margin: 0 auto; padding: 3rem 2rem 6rem; }
+  .page-title { font-family: 'Crimson Pro', serif; font-size: 2.4rem; font-weight: 300; letter-spacing: -.03em; margin-bottom: .4rem; line-height: 1.2; }
+  .page-subtitle { color: var(--text-2); font-size: .9rem; margin-bottom: 2.5rem; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.75rem; box-shadow: var(--shadow); margin-bottom: 1.5rem; }
+  .card-title { font-family: 'Crimson Pro', serif; font-size: 1.2rem; font-weight: 600; margin-bottom: 1.25rem; display: flex; align-items: center; gap: .6rem; }
+  .step-badge { width: 24px; height: 24px; border-radius: 50%; background: var(--surface-2); border: 1px solid var(--border); font-size: .7rem; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; color: var(--text-2); flex-shrink: 0; }
+  .step-badge.active { background: var(--accent); border-color: var(--accent); color: white; }
+
+  /* Profiles */
+  .profile-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: .75rem; margin-bottom: 1.25rem; }
+  .profile-tile { border: 2px solid var(--border); border-radius: var(--radius-sm); padding: 1rem 1.1rem; cursor: pointer; transition: all .15s; background: var(--surface); }
+  .profile-tile:hover { border-color: var(--accent); background: var(--accent-light); }
+  .profile-tile.selected { border-color: var(--accent); background: var(--accent-light); }
+  .profile-tile-name { font-weight: 600; font-size: .925rem; margin-bottom: .2rem; }
+  .profile-tile-meta { font-size: .775rem; color: var(--text-2); }
+  .profile-tile-actions { display: flex; gap: .4rem; margin-top: .6rem; }
+  .profile-tile-btn { font-size: .7rem; padding: .2rem .5rem; border-radius: 4px; border: 1px solid var(--border); background: var(--surface); cursor: pointer; color: var(--text-2); font-family: 'DM Sans', sans-serif; transition: all .1s; }
+  .profile-tile-btn:hover { background: var(--surface-2); color: var(--text); }
+  .profile-tile-btn.danger:hover { background: var(--danger-light); border-color: #FECACA; color: var(--danger); }
+  .add-profile-tile { border: 2px dashed var(--border); border-radius: var(--radius-sm); padding: 1rem 1.1rem; cursor: pointer; transition: all .15s; display: flex; align-items: center; justify-content: center; gap: .5rem; color: var(--text-3); font-size: .875rem; min-height: 80px; }
+  .add-profile-tile:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* Modal */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 200; display: none; align-items: center; justify-content: center; padding: 1rem; backdrop-filter: blur(2px); }
+  .modal-overlay.open { display: flex; }
+  .modal { background: var(--surface); border-radius: var(--radius); padding: 2rem; width: 100%; max-width: 480px; box-shadow: 0 20px 60px rgba(0,0,0,.15); max-height: 90vh; overflow-y: auto; }
+  .modal-title { font-family: 'Crimson Pro', serif; font-size: 1.4rem; font-weight: 600; margin-bottom: 1.5rem; }
+  .modal-actions { display: flex; gap: .75rem; margin-top: 1.5rem; justify-content: flex-end; }
+  .field { margin-bottom: 1rem; }
+  label { display: block; font-size: .8rem; font-weight: 500; color: var(--text-2); margin-bottom: .35rem; text-transform: uppercase; letter-spacing: .06em; }
+  input[type=text], input[type=password], select, textarea { width: 100%; padding: .65rem .9rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); font-family: 'DM Sans', sans-serif; font-size: .9rem; color: var(--text); outline: none; transition: border-color .2s; }
+  textarea { resize: vertical; min-height: 80px; }
+  input:focus, select:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(22,163,74,.1); }
+  select { appearance: none; -webkit-appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23A8A29E' d='M6 8L1 3h10z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right .9rem center; }
+  .field-hint { font-size: .775rem; color: var(--text-3); margin-top: .3rem; }
+
+  /* Drop zone */
+  .drop-zone { border: 2px dashed var(--border); border-radius: var(--radius-sm); padding: 2.5rem 2rem; text-align: center; cursor: pointer; transition: all .2s; background: var(--bg); position: relative; }
+  .drop-zone:hover, .drop-zone.drag-over { border-color: var(--accent); background: var(--accent-light); }
+  .drop-zone input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+  .drop-icon { font-size: 2rem; margin-bottom: .5rem; display: block; }
+  .drop-label { font-weight: 500; margin-bottom: .2rem; }
+  .drop-hint { font-size: .825rem; color: var(--text-3); }
+
+  /* File list */
+  .file-list { margin-top: 1rem; display: flex; flex-direction: column; gap: .5rem; }
+  .file-row { display: flex; align-items: center; gap: .75rem; padding: .65rem .9rem; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); }
+  .file-row-name { flex: 1; font-size: .875rem; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .file-row-account { width: 160px; flex-shrink: 0; margin-top: 0; padding: .4rem .75rem; font-size: .825rem; }
+  .file-row-remove { background: none; border: none; cursor: pointer; color: var(--text-3); font-size: 1rem; padding: 0 .25rem; line-height: 1; transition: color .15s; }
+  .file-row-remove:hover { color: var(--danger); }
+
+  /* Buttons */
+  .btn { display: inline-flex; align-items: center; gap: .5rem; padding: .7rem 1.4rem; border-radius: var(--radius-sm); font-family: 'DM Sans', sans-serif; font-size: .875rem; font-weight: 500; cursor: pointer; border: none; transition: all .15s; }
+  .btn-primary { background: var(--accent); color: white; }
+  .btn-primary:hover { background: var(--accent-dark); transform: translateY(-1px); }
+  .btn-primary:disabled { background: var(--text-3); cursor: not-allowed; transform: none; }
+  .btn-secondary { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
+  .btn-secondary:hover { background: var(--surface-2); }
+  .btn-row { display: flex; gap: .75rem; margin-top: 1.5rem; flex-wrap: wrap; }
+
+  /* Progress */
+  .progress-bar-wrap { height: 6px; background: var(--surface-2); border-radius: 3px; overflow: hidden; margin-bottom: .75rem; }
+  .progress-bar-fill { height: 100%; background: var(--accent); border-radius: 3px; transition: width .4s ease; width: 0%; }
+  .progress-stats { display: flex; justify-content: space-between; align-items: center; font-size: .8rem; color: var(--text-2); margin-bottom: 1rem; }
+
+  /* AI thinking indicator */
+  .ai-status { display: flex; align-items: center; gap: .75rem; padding: .75rem 1rem; background: var(--warn-light); border: 1px solid #FDE68A; border-radius: var(--radius-sm); margin-bottom: 1rem; font-size: .85rem; color: var(--warn); transition: opacity .3s; }
+  .ai-status.hidden { opacity: 0; pointer-events: none; }
+  .ai-status-text { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ai-pulse { display: flex; gap: 3px; align-items: center; flex-shrink: 0; }
+  .ai-pulse span { width: 5px; height: 5px; border-radius: 50%; background: var(--warn); animation: pulse-dot 1.2s ease-in-out infinite; }
+  .ai-pulse span:nth-child(2) { animation-delay: .2s; }
+  .ai-pulse span:nth-child(3) { animation-delay: .4s; }
+  @keyframes pulse-dot { 0%, 80%, 100% { transform: scale(0.6); opacity: .4; } 40% { transform: scale(1); opacity: 1; } }
+
+  /* File section divider in feed */
+  .tx-file-header { padding: .4rem .75rem; background: var(--surface-2); border-bottom: 1px solid var(--border); font-size: .75rem; font-weight: 600; color: var(--text-2); text-transform: uppercase; letter-spacing: .06em; display: flex; align-items: center; gap: .5rem; }
+
+  /* Transaction feed */
+  .tx-feed { height: 300px; overflow-y: auto; border: 1px solid var(--border); border-radius: var(--radius-sm); font-family: 'JetBrains Mono', monospace; font-size: .76rem; line-height: 1.4; background: #FAFAF8; }
+  .tx-row { display: grid; grid-template-columns: 90px 76px 1fr 130px 52px; gap: .5rem; padding: .38rem .75rem; border-bottom: 1px solid var(--border); align-items: center; animation: slideIn .15s ease; }
+  .tx-row:last-child { border-bottom: none; }
+  @keyframes slideIn { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; } }
+  .tx-date { color: var(--text-3); }
+  .tx-amount { text-align: right; font-weight: 500; }
+  .tx-amount.neg { color: var(--danger); } .tx-amount.pos { color: var(--income); }
+  .tx-desc { color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tx-cat { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+  .src { font-size: .62rem; padding: .12rem .3rem; border-radius: 3px; font-weight: 700; text-transform: uppercase; white-space: nowrap; }
+  .src-ai { background: var(--warn-light); color: var(--warn); }
+  .src-rule { background: var(--accent-light); color: var(--accent-dark); }
+
+  /* Summary */
+  .summary-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(155px, 1fr)); gap: .6rem; margin-bottom: 1.5rem; }
+  .summary-chip { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: .7rem 1rem; display: flex; justify-content: space-between; align-items: center; }
+  .chip-cat { font-size: .8rem; font-weight: 500; color: var(--text-2); }
+  .chip-count { font-family: 'JetBrains Mono', monospace; font-size: .85rem; background: var(--surface); border: 1px solid var(--border); padding: .1rem .4rem; border-radius: 4px; }
+
+  /* Merchant review */
+  .merchant-card { border: 1px solid var(--border); border-radius: var(--radius-sm); margin-bottom: .75rem; overflow: hidden; }
+  .merchant-header { padding: .85rem 1rem; background: var(--surface-2); display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; }
+  .merchant-name { font-weight: 600; font-size: .9rem; }
+  .merchant-meta { font-size: .775rem; color: var(--text-2); margin-top: .1rem; }
+  .ai-tag { font-size: .72rem; font-weight: 600; color: var(--warn); background: var(--warn-light); padding: .2rem .55rem; border-radius: 20px; white-space: nowrap; flex-shrink: 0; }
+  .merchant-body { padding: .85rem 1rem; }
+  .cat-select-wrap { display: flex; gap: .5rem; align-items: center; }
+  .cat-select-wrap select { margin-top: 0; flex: 1; }
+  .skip-btn { font-size: .8rem; color: var(--text-3); background: none; border: none; cursor: pointer; padding: .4rem .5rem; }
+  .skip-btn:hover { color: var(--text-2); }
+  .merchant-card.skipped { opacity: .35; }
+  .merchant-card.confirmed .merchant-header { background: var(--accent-light); }
+
+  /* Alerts */
+  .alert { padding: .9rem 1.1rem; border-radius: var(--radius-sm); font-size: .875rem; margin-bottom: 1rem; }
+  .alert-success { background: var(--accent-light); color: var(--accent-dark); border: 1px solid #BBF7D0; }
+  .alert-error { background: var(--danger-light); color: var(--danger); border: 1px solid #FECACA; }
+
+  .section { display: none; } .section.visible { display: block; }
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.3); border-top-color: white; border-radius: 50%; animation: spin .6s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .tx-feed::-webkit-scrollbar { width: 4px; } .tx-feed::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+  .no-profiles { text-align: center; padding: 2rem; color: var(--text-2); font-size: .9rem; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <span class="logo-word">Ledger</span>
+    <span class="logo-sub">ANZ Importer</span>
+  </div>
+  <div class="status-pill">
+    <div class="status-dot" id="dot-ollama"></div>
+    <span>Ollama</span>
+  </div>
+</header>
+
+<main>
+  <h1 class="page-title">Import transactions</h1>
+  <p class="page-subtitle">Select your profile, add one or more ANZ CSV exports, and the AI will categorize everything.</p>
+
+  <!-- STEP 1 -->
+  <div class="card section visible" id="section-upload">
+    <div class="card-title"><span class="step-badge active">1</span> Select your profile</div>
+    <div class="profile-grid" id="profile-grid">
+      {% if not profiles %}
+        <div class="no-profiles" id="no-profiles-msg">No profiles yet — add one below.</div>
+      {% endif %}
+      {% for pid, profile in profiles.items() %}
+      <div class="profile-tile" data-pid="{{ pid }}" onclick="selectProfile('{{ pid }}', this)">
+        <div class="profile-tile-name">{{ profile.name }}</div>
+        <div class="profile-tile-meta">{{ profile.accounts | join(', ') }}</div>
+        <div class="profile-tile-actions">
+          <button class="profile-tile-btn" onclick="event.stopPropagation(); openProfileModal('{{ pid }}')">Edit</button>
+          <button class="profile-tile-btn danger" onclick="event.stopPropagation(); deleteProfile('{{ pid }}')">Delete</button>
+        </div>
+      </div>
+      {% endfor %}
+      <div class="add-profile-tile" onclick="openProfileModal()">＋ Add profile</div>
+    </div>
+
+    <div id="file-section" style="display:none;">
+      <div class="card-title" style="margin-top:1.5rem;"><span class="step-badge active">2</span> Add files</div>
+      <div class="drop-zone" id="drop-zone">
+        <input type="file" id="file-input" accept=".csv" multiple>
+        <span class="drop-icon">📂</span>
+        <div class="drop-label">Drop CSV files here</div>
+        <div class="drop-hint">You can add multiple files — each gets its own account</div>
+      </div>
+      <div class="file-list" id="file-list"></div>
+      <div class="btn-row">
+        <button class="btn btn-primary" id="btn-start" disabled>Start categorizing</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 2: PROGRESS -->
+  <div class="card section" id="section-progress">
+    <div class="card-title"><span class="step-badge active">2</span><span id="progress-title">Categorizing…</span></div>
+    <div class="progress-bar-wrap"><div class="progress-bar-fill" id="progress-bar"></div></div>
+    <div class="progress-stats">
+      <span id="progress-count">0 of 0</span>
+      <span id="progress-eta" style="color:var(--text-3);"></span>
+      <span id="progress-pct">0%</span>
+    </div>
+    <div class="ai-status hidden" id="ai-status">
+      <div class="ai-pulse"><span></span><span></span><span></span></div>
+      <span class="ai-status-text" id="ai-status-text">Asking AI…</span>
+    </div>
+    <div class="tx-feed" id="tx-feed"></div>
+  </div>
+
+  <!-- STEP 3: MERCHANT REVIEW -->
+  <div class="card section" id="section-review">
+    <div class="card-title"><span class="step-badge active">3</span> Review new merchants</div>
+    <p style="color:var(--text-2);font-size:.875rem;margin-bottom:1.25rem;">Confirm or correct the AI's suggestion for each new merchant. Your choices are remembered for future imports.</p>
+    <div id="merchant-list"></div>
+    <div class="btn-row">
+      <button class="btn btn-primary" id="btn-save-corrections">Save & continue</button>
+      <button class="btn btn-secondary" id="btn-skip-review">Skip — use AI suggestions</button>
+    </div>
+  </div>
+
+  <!-- STEP 4: SUMMARY + IMPORT -->
+  <div class="card section" id="section-summary">
+    <div class="card-title"><span class="step-badge active">4</span> Ready to import</div>
+    <div class="summary-grid" id="summary-grid"></div>
+    <div id="import-alert"></div>
+    <div class="btn-row">
+      <button class="btn btn-primary" id="btn-import">Push to Actual Budget</button>
+      <button class="btn btn-secondary" id="btn-start-over">Start over</button>
+    </div>
+  </div>
+</main>
+
+<!-- PROFILE MODAL -->
+<div class="modal-overlay" id="profile-modal">
+  <div class="modal">
+    <div class="modal-title" id="modal-title">Add profile</div>
+    <input type="hidden" id="modal-pid">
+    <div class="field">
+      <label>Your name</label>
+      <input type="text" id="modal-name" placeholder="e.g. Audrey">
+    </div>
+    <div class="field">
+      <label>Actual Budget server URL</label>
+      <input type="text" id="modal-url" placeholder="http://localhost:5006">
+      <div class="field-hint">Internal URL used by the server — leave as default if self-hosted here</div>
+    </div>
+    <div class="field">
+      <label>Actual Budget public URL</label>
+      <input type="text" id="modal-public-url" placeholder="https://budget.emlw.dev">
+      <div class="field-hint">The link shown after a successful import</div>
+    </div>
+    <div class="field">
+      <label>Actual Budget password</label>
+      <input type="password" id="modal-password">
+    </div>
+    <div class="field">
+      <label>Budget Sync ID</label>
+      <input type="text" id="modal-budget-id" placeholder="Settings → Advanced → Sync ID">
+    </div>
+    <div class="field">
+      <label>Accounts (one per line)</label>
+      <textarea id="modal-accounts" placeholder="Spending&#10;Savings&#10;KiwiSaver"></textarea>
+      <div class="field-hint">Must exactly match account names in Actual Budget</div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeProfileModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveProfile()">Save profile</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let currentJobId      = null;
+let summaryData       = null;
+let selectedProfileId = null;
+let profilesData      = {{ profiles | tojson }};
+let pendingFiles      = [];
+let startTime         = null;
+
+// ── STATUS ──
+async function checkStatus() {
+  try {
+    const d = await (await fetch('/api/status')).json();
+    document.getElementById('dot-ollama').className = 'status-dot ' + (d.ollama ? 'ok' : 'err');
+  } catch(e) {}
+}
+checkStatus();
+setInterval(checkStatus, 15000);
+
+// ── PROFILES ──
+function selectProfile(pid, el) {
+  selectedProfileId = pid;
+  document.querySelectorAll('.profile-tile').forEach(t => t.classList.remove('selected'));
+  el.classList.add('selected');
+  document.getElementById('file-section').style.display = 'block';
+  rebuildFileList();
+}
+
+function getAccountOptions(selectedAccount) {
+  if (!selectedProfileId || !profilesData[selectedProfileId]) return '<option>Spending</option>';
+  return profilesData[selectedProfileId].accounts.map(a =>
+    '<option value="' + esc(a) + '"' + (a === selectedAccount ? ' selected' : '') + '>' + esc(a) + '</option>'
+  ).join('');
+}
+
+function openProfileModal(pid) {
+  document.getElementById('modal-pid').value = pid || '';
+  document.getElementById('modal-title').textContent = pid ? 'Edit profile' : 'Add profile';
+  const p = pid && profilesData[pid];
+  document.getElementById('modal-name').value       = p ? p.name : '';
+  document.getElementById('modal-url').value        = p ? (p.actual_url || 'http://localhost:5006') : 'http://localhost:5006';
+  document.getElementById('modal-public-url').value = p ? (p.public_url || '') : '';
+  document.getElementById('modal-password').value   = p ? p.password : '';
+  document.getElementById('modal-budget-id').value  = p ? p.budget_id : '';
+  document.getElementById('modal-accounts').value   = p ? p.accounts.join('\n') : 'Spending\nSavings';
+  document.getElementById('profile-modal').classList.add('open');
+}
+
+function closeProfileModal() { document.getElementById('profile-modal').classList.remove('open'); }
+document.getElementById('profile-modal').addEventListener('click', e => { if (e.target === e.currentTarget) closeProfileModal(); });
+
+async function saveProfile() {
+  const pid      = document.getElementById('modal-pid').value;
+  const accounts = document.getElementById('modal-accounts').value.split('\n').map(s => s.trim()).filter(Boolean);
+  const body = {
+    name:       document.getElementById('modal-name').value.trim(),
+    actual_url: document.getElementById('modal-url').value.trim() || 'http://localhost:5006',
+    public_url: document.getElementById('modal-public-url').value.trim(),
+    password:   document.getElementById('modal-password').value,
+    budget_id:  document.getElementById('modal-budget-id').value.trim(),
+    accounts,
+  };
+  if (!body.name || !body.password || !body.budget_id) { alert('Please fill in name, password, and sync ID.'); return; }
+  const r     = await fetch(pid ? '/api/profiles/' + pid : '/api/profiles', { method: pid ? 'PUT' : 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+  const saved = await r.json();
+  if (pid) {
+    profilesData[pid] = body;
+    const tile = document.querySelector('[data-pid="' + pid + '"]');
+    if (tile) { tile.querySelector('.profile-tile-name').textContent = body.name; tile.querySelector('.profile-tile-meta').textContent = body.accounts.join(', '); }
+  } else {
+    const newPid = saved.id;
+    profilesData[newPid] = body;
+    const grid   = document.getElementById('profile-grid');
+    const addBtn = grid.querySelector('.add-profile-tile');
+    const tile   = document.createElement('div');
+    tile.className    = 'profile-tile';
+    tile.dataset.pid  = newPid;
+    tile.setAttribute('onclick', "selectProfile('" + newPid + "', this)");
+    tile.innerHTML    = '<div class="profile-tile-name">' + esc(body.name) + '</div><div class="profile-tile-meta">' + esc(body.accounts.join(', ')) + '</div><div class="profile-tile-actions"><button class="profile-tile-btn" onclick="event.stopPropagation();openProfileModal(\'' + newPid + '\')">Edit</button><button class="profile-tile-btn danger" onclick="event.stopPropagation();deleteProfile(\'' + newPid + '\')">Delete</button></div>';
+    grid.insertBefore(tile, addBtn);
+    document.getElementById('no-profiles-msg')?.remove();
+  }
+  closeProfileModal();
+}
+
+async function deleteProfile(pid) {
+  if (!confirm('Delete this profile?')) return;
+  await fetch('/api/profiles/' + pid, { method: 'DELETE' });
+  delete profilesData[pid];
+  document.querySelector('[data-pid="' + pid + '"]')?.remove();
+  if (selectedProfileId === pid) { selectedProfileId = null; document.getElementById('file-section').style.display = 'none'; }
+}
+
+// ── FILE MANAGEMENT ──
+const dropZone = document.getElementById('drop-zone');
+const fileInput = document.getElementById('file-input');
+
+fileInput.addEventListener('change', () => { addFiles(Array.from(fileInput.files)); fileInput.value = ''; });
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('drag-over'); addFiles(Array.from(e.dataTransfer.files).filter(f => f.name.endsWith('.csv'))); });
+
+function addFiles(files) {
+  const defaultAccount = (selectedProfileId && profilesData[selectedProfileId]?.accounts[0]) || 'Spending';
+  files.forEach(f => pendingFiles.push({ file: f, account: defaultAccount }));
+  rebuildFileList();
+}
+
+function rebuildFileList() {
+  const list = document.getElementById('file-list');
+  list.innerHTML = '';
+  pendingFiles.forEach((item, i) => {
+    const row = document.createElement('div');
+    row.className = 'file-row';
+    row.innerHTML = '<span class="file-row-name">📄 ' + esc(item.file.name) + '</span><select class="file-row-account" onchange="pendingFiles[' + i + '].account = this.value">' + getAccountOptions(item.account) + '</select><button class="file-row-remove" onclick="removeFile(' + i + ')" title="Remove">✕</button>';
+    list.appendChild(row);
+  });
+  document.getElementById('btn-start').disabled = pendingFiles.length === 0;
+}
+
+function removeFile(i) { pendingFiles.splice(i, 1); rebuildFileList(); }
+
+// ── UPLOAD & STREAM ──
+document.getElementById('btn-start').addEventListener('click', async () => {
+  if (!pendingFiles.length || !selectedProfileId) return;
+  const btn = document.getElementById('btn-start');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Uploading…';
+
+  const formData = new FormData();
+  formData.append('profile_id', selectedProfileId);
+  pendingFiles.forEach(item => { formData.append('files', item.file); formData.append('accounts', item.account); });
+
+  const r = await fetch('/api/upload', { method: 'POST', body: formData });
+  const d = await r.json();
+  if (d.error) { alert(d.error); btn.disabled = false; btn.innerHTML = 'Start categorizing'; return; }
+
+  currentJobId = d.job_id;
+  startTime    = Date.now();
+  showSection('section-progress');
+  document.getElementById('progress-title').textContent = 'Categorizing ' + d.total + ' transactions across ' + d.files + ' file' + (d.files > 1 ? 's' : '') + '…';
+  startStream(d.total);
+});
+
+function startStream(total) {
+  const feed   = document.getElementById('tx-feed');
+  const bar    = document.getElementById('progress-bar');
+  const cEl    = document.getElementById('progress-count');
+  const pEl    = document.getElementById('progress-pct');
+  const etaEl  = document.getElementById('progress-eta');
+  const aiBox  = document.getElementById('ai-status');
+  const aiText = document.getElementById('ai-status-text');
+  const es     = new EventSource('/api/stream/' + currentJobId);
+
+  es.onmessage = e => {
+    const msg = JSON.parse(e.data);
+
+    if (msg.type === 'file_start') {
+      const hdr = document.createElement('div');
+      hdr.className = 'tx-file-header';
+      hdr.textContent = '📁 ' + msg.account + ' — ' + msg.count + ' transactions';
+      feed.appendChild(hdr);
+      feed.scrollTop = feed.scrollHeight;
+    }
+
+    if (msg.type === 'thinking') {
+      aiBox.classList.remove('hidden');
+      aiText.textContent = 'Asking AI about: ' + msg.description;
+    }
+
+    if (msg.type === 'progress') {
+      aiBox.classList.add('hidden');
+      const pct = Math.round((msg.index / total) * 100);
+      bar.style.width  = pct + '%';
+      cEl.textContent  = msg.index + ' of ' + total;
+      pEl.textContent  = pct + '%';
+      const elapsed = (Date.now() - startTime) / 1000;
+      if (msg.index > 2) {
+        const remain = Math.round((elapsed / msg.index) * (total - msg.index));
+        etaEl.textContent = remain > 5 ? '~' + remain + 's remaining' : 'almost done…';
+      }
+      const row = document.createElement('div');
+      row.className = 'tx-row';
+      row.innerHTML = '<span class="tx-date">' + msg.date + '</span>'
+        + '<span class="tx-amount ' + (msg.amount < 0 ? 'neg' : 'pos') + '">' + (msg.amount >= 0 ? '+' : '') + msg.amount.toFixed(2) + '</span>'
+        + '<span class="tx-desc">' + esc(msg.description) + '</span>'
+        + '<span class="tx-cat">' + esc(msg.category) + '</span>'
+        + '<span class="src ' + (msg.source === 'ollama' ? 'src-ai' : 'src-rule') + '">' + (msg.source === 'ollama' ? 'AI' : '✓') + '</span>';
+      feed.appendChild(row);
+      feed.scrollTop = feed.scrollHeight;
+    }
+
+    if (msg.type === 'done') {
+      es.close();
+      aiBox.classList.add('hidden');
+      etaEl.textContent = '';
+      const btn = document.getElementById('btn-start');
+      btn.disabled = false;
+      btn.textContent = 'Start categorizing';
+      summaryData = msg.summary;
+      document.getElementById('progress-title').textContent = 'Done — ' + total + ' transactions categorized ✓';
+      const nm = msg.new_merchants || {};
+      if (Object.keys(nm).length > 0) { showSection('section-review'); buildMerchantReview(nm); }
+      else { showSummary(); }
+    }
+  };
+  es.onerror = () => es.close();
+}
+
+// ── MERCHANT REVIEW ──
+function buildMerchantReview(merchants) {
+  const list = document.getElementById('merchant-list');
+  const cats = {{ categories | tojson }};
+  list.innerHTML = '';
+  for (const [name, info] of Object.entries(merchants)) {
+    const card = document.createElement('div');
+    card.className        = 'merchant-card';
+    card.dataset.merchant = name;
+    const opts   = cats.map(c => '<option value="' + esc(c) + '"' + (c === info.category ? ' selected' : '') + '>' + esc(c) + '</option>').join('');
+    const aiTagHtml = info.failed
+      ? '<span class="ai-tag" style="background:#FEE2E2;color:#DC2626;">⚠ Timed out — needs category</span>'
+      : '<span class="ai-tag">AI: ' + esc(info.category) + '</span>';
+    card.innerHTML = '<div class="merchant-header"><div><div class="merchant-name">' + esc(name) + '</div><div class="merchant-meta">' + info.count + '×  ' + esc(info.example.substring(0,50)) + '…</div></div>' + aiTagHtml + '</div><div class="merchant-body"><div class="cat-select-wrap"><select class="cat-select">' + opts + '</select><button class="skip-btn" onclick="skipMerchant(this)">Skip</button></div></div>';
+    list.appendChild(card);
+  }
+}
+
+function skipMerchant(btn) { const c = btn.closest('.merchant-card'); c.classList.add('skipped'); c.dataset.skipped = '1'; }
+
+document.getElementById('btn-save-corrections').addEventListener('click', async () => {
+  const corrections = {};
+  document.querySelectorAll('.merchant-card:not([data-skipped="1"])').forEach(card => {
+    corrections[card.dataset.merchant] = card.querySelector('.cat-select').value;
+    card.classList.add('confirmed');
+  });
+  await fetch('/api/save-corrections', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ job_id: currentJobId, corrections }) });
+  showSummary();
+});
+document.getElementById('btn-skip-review').addEventListener('click', showSummary);
+
+// ── SUMMARY ──
+function showSummary() {
+  showSection('section-summary');
+  const grid = document.getElementById('summary-grid');
+  grid.innerHTML = '';
+  Object.entries(summaryData || {}).sort((a,b) => b[1]-a[1]).forEach(([cat, count]) => {
+    const chip = document.createElement('div');
+    chip.className = 'summary-chip';
+    chip.innerHTML = '<span class="chip-cat">' + esc(cat) + '</span><span class="chip-count">' + count + '</span>';
+    grid.appendChild(chip);
+  });
+}
+
+// ── IMPORT ──
+document.getElementById('btn-import').addEventListener('click', async () => {
+  const btn     = document.getElementById('btn-import');
+  const alertEl = document.getElementById('import-alert');
+  btn.disabled  = true;
+  btn.innerHTML = '<span class="spinner"></span> Importing…';
+  alertEl.innerHTML = '';
+  try {
+    const r = await fetch('/api/import', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ job_id: currentJobId }) });
+    const d = await r.json();
+    if (d.success) {
+      const p   = profilesData[selectedProfileId];
+      const url = p?.public_url || p?.actual_url || 'http://' + location.hostname + ':5006';
+      alertEl.innerHTML = '<div class="alert alert-success">✓ All done! <a href="' + url + '" target="_blank" style="color:inherit;font-weight:600;">Open Actual Budget →</a></div>';
+      btn.textContent = 'Done ✓';
+    } else {
+      alertEl.innerHTML = '<div class="alert alert-error">Import failed: ' + esc(d.error) + '</div>';
+      btn.disabled = false; btn.textContent = 'Try again';
+    }
+  } catch(e) {
+    alertEl.innerHTML = '<div class="alert alert-error">Network error.</div>';
+    btn.disabled = false; btn.textContent = 'Try again';
+  }
+});
+
+document.getElementById('btn-start-over').addEventListener('click', () => location.reload());
+
+// ── HELPERS ──
+function showSection(id) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('visible'));
+  document.getElementById(id).classList.add('visible');
+  if (['section-review', 'section-summary'].includes(id)) {
+    document.getElementById('section-progress').classList.add('visible');
+    document.getElementById('section-upload').classList.add('visible');
+  }
+  setTimeout(() => {
+    const el     = document.getElementById(id);
+    const offset = el.getBoundingClientRect().top + window.scrollY - 80;
+    window.scrollTo({ top: offset, behavior: 'smooth' });
+  }, 50);
+}
+
+function esc(s) { return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+</script>
+</body>
+</html>

@@ -1,0 +1,4 @@
+profiles.json
+corrections_*.json
+__pycache__/
+*.pyc
