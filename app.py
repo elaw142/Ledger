@@ -6,7 +6,15 @@ Run: python3 app.py
 
 from flask import Flask, render_template, request, jsonify, Response, stream_with_context
 from flask_cors import CORS
-import csv, json, os, re, subprocess, threading, uuid, queue, time
+import csv
+import json
+import os
+import re
+import subprocess
+import threading
+import uuid
+import queue
+import time
 import requests as http_requests
 from dateutil import parser as dateparser
 from io import StringIO
@@ -15,13 +23,13 @@ app = Flask(__name__)
 CORS(app)
 
 # ─── PATHS ───────────────────────────────────────────────────────────────────
-BASE_DIR          = "/home/opc/finance"
-SCRIPTS_DIR       = os.path.join(BASE_DIR, "scripts")
-PROFILES_FILE     = os.path.join(BASE_DIR, "importer", "profiles.json")
+BASE_DIR = "/home/opc/finance"
+SCRIPTS_DIR = os.path.join(BASE_DIR, "scripts")
+PROFILES_FILE = os.path.join(BASE_DIR, "importer", "profiles.json")
 TRANSACTIONS_FILE = os.path.join(SCRIPTS_DIR, "categorized_transactions.json")
 
 OLLAMA_BASE_URL = "http://localhost:11434"
-OLLAMA_MODEL    = "llama3.1:8b"
+OLLAMA_MODEL = "mistral:7b"
 
 CATEGORY_PREFERENCES = """
 My budget categories are:
@@ -54,18 +62,22 @@ jobs = {}
 
 # ─── PROFILE HELPERS ─────────────────────────────────────────────────────────
 
+
 def load_profiles():
     if os.path.exists(PROFILES_FILE):
         with open(PROFILES_FILE) as f:
             return json.load(f)
     return {}
 
+
 def save_profiles(profiles):
     with open(PROFILES_FILE, "w") as f:
         json.dump(profiles, f, indent=2)
 
+
 def get_corrections_path(profile_id):
     return os.path.join(BASE_DIR, "importer", f"corrections_{profile_id}.json")
+
 
 def load_corrections(profile_id):
     path = get_corrections_path(profile_id)
@@ -74,11 +86,13 @@ def load_corrections(profile_id):
             return json.load(f)
     return {}
 
+
 def save_corrections_for_profile(profile_id, corrections):
     with open(get_corrections_path(profile_id), "w") as f:
         json.dump(corrections, f, indent=2)
 
 # ─── CSV / CATEGORIZATION HELPERS ────────────────────────────────────────────
+
 
 def extract_merchant(description):
     parts = [p.strip() for p in description.split("|")]
@@ -90,26 +104,29 @@ def extract_merchant(description):
     else:
         merchant = parts[0]
     merchant = re.sub(r'\s+\d{4,}$', '', merchant)
-    merchant = re.sub(r'\s+(Visa Purchase|Eftpos|Online|Payment).*$', '', merchant, flags=re.IGNORECASE)
+    merchant = re.sub(r'\s+(Visa Purchase|Eftpos|Online|Payment).*$',
+                      '', merchant, flags=re.IGNORECASE)
     return merchant.strip() or description[:30]
+
 
 def parse_anz_csv(file_content):
     transactions = []
     reader = csv.DictReader(StringIO(file_content))
     for row in reader:
         row = {k.strip(): v.strip() for k, v in row.items() if k}
-        date_str   = row.get("Date", "")
+        date_str = row.get("Date", "")
         amount_str = row.get("Amount", "")
         description_parts = []
         for field in ["Details", "Description", "Particulars", "Code", "Reference", "Type"]:
             val = row.get(field, "").strip()
             if val:
                 description_parts.append(val)
-        description = " | ".join(description_parts) if description_parts else "Unknown"
+        description = " | ".join(
+            description_parts) if description_parts else "Unknown"
         if not date_str or not amount_str or date_str.lower() in ("date", ""):
             continue
         try:
-            date   = dateparser.parse(date_str, dayfirst=True)
+            date = dateparser.parse(date_str, dayfirst=True)
             amount = float(amount_str.replace(",", ""))
         except (ValueError, TypeError):
             continue
@@ -120,9 +137,10 @@ def parse_anz_csv(file_content):
         })
     return transactions
 
+
 def categorize_transaction(transaction, corrections):
     desc_upper = transaction["description"].upper()
-    merchant   = extract_merchant(transaction["description"])
+    merchant = extract_merchant(transaction["description"])
 
     # Check corrections file first
     for keyword, category in corrections.items():
@@ -166,28 +184,30 @@ Category:"""
     except Exception:
         return "Uncategorized", "error", merchant
 
+
 def run_categorization(job_id, file_batches, profile_id):
     """
     file_batches: list of {"transactions": [...], "account_name": "..."}
     Processes all files sequentially, emitting progress events throughout.
     """
-    job         = jobs[job_id]
-    q           = job["queue"]
+    job = jobs[job_id]
+    q = job["queue"]
     corrections = load_corrections(profile_id)
 
     # Count total transactions across all files
     total = sum(len(b["transactions"]) for b in file_batches)
     q.put({"type": "start", "total": total})
 
-    all_results     = []   # flat list of all transactions with account_name attached
-    new_merchants   = {}
-    global_index    = 0
+    all_results = []   # flat list of all transactions with account_name attached
+    new_merchants = {}
+    global_index = 0
 
     for batch in file_batches:
-        account_name  = batch["account_name"]
-        transactions  = batch["transactions"]
+        account_name = batch["account_name"]
+        transactions = batch["transactions"]
 
-        q.put({"type": "file_start", "account": account_name, "count": len(transactions)})
+        q.put({"type": "file_start", "account": account_name,
+              "count": len(transactions)})
 
         for txn in transactions:
             global_index += 1
@@ -202,10 +222,11 @@ def run_categorization(job_id, file_batches, profile_id):
                     "account":     account_name,
                 })
 
-            category, source, merchant = categorize_transaction(txn, corrections)
-            txn["category"]    = category
-            txn["source"]      = source
-            txn["merchant"]    = merchant
+            category, source, merchant = categorize_transaction(
+                txn, corrections)
+            txn["category"] = category
+            txn["source"] = source
+            txn["merchant"] = merchant
             txn["account_name"] = account_name
             all_results.append(txn)
 
@@ -225,10 +246,10 @@ def run_categorization(job_id, file_batches, profile_id):
     for txn in all_results:
         if txn.get("source") not in ("ollama", "error", "timeout"):
             continue
-        merchant       = txn.get("merchant", txn["description"][:30])
+        merchant = txn.get("merchant", txn["description"][:30])
         merchant_upper = merchant.upper()
-        already_known  = any(k.upper() in merchant_upper or merchant_upper in k.upper()
-                             for k in corrections.keys())
+        already_known = any(k.upper() in merchant_upper or merchant_upper in k.upper()
+                            for k in corrections.keys())
         if already_known or merchant in new_merchants:
             continue
         new_merchants[merchant] = {
@@ -238,10 +259,10 @@ def run_categorization(job_id, file_batches, profile_id):
             "failed":   txn.get("source") in ("error", "timeout")
         }
 
-    job["transactions"]  = all_results
-    job["file_batches"]  = file_batches
+    job["transactions"] = all_results
+    job["file_batches"] = file_batches
     job["new_merchants"] = new_merchants
-    job["done"]          = True
+    job["done"] = True
 
     q.put({
         "type":          "done",
@@ -252,15 +273,17 @@ def run_categorization(job_id, file_batches, profile_id):
 
 # ─── ROUTES ──────────────────────────────────────────────────────────────────
 
+
 @app.route("/")
 def index():
     profiles = load_profiles()
     return render_template("index.html", profiles=profiles, categories=CATEGORIES)
 
+
 @app.route("/api/status")
 def status():
     try:
-        resp      = http_requests.get(f"{OLLAMA_BASE_URL}/api/tags", timeout=3)
+        resp = http_requests.get(f"{OLLAMA_BASE_URL}/api/tags", timeout=3)
         ollama_ok = resp.ok
     except Exception:
         ollama_ok = False
@@ -268,15 +291,17 @@ def status():
 
 # ── Profile CRUD ──
 
+
 @app.route("/api/profiles", methods=["GET"])
 def get_profiles():
     return jsonify(load_profiles())
 
+
 @app.route("/api/profiles", methods=["POST"])
 def create_profile():
-    data     = request.json
+    data = request.json
     profiles = load_profiles()
-    pid      = str(uuid.uuid4())[:8]
+    pid = str(uuid.uuid4())[:8]
     profiles[pid] = {
         "name":       data["name"],
         "actual_url": data.get("actual_url", "http://localhost:5006"),
@@ -287,9 +312,10 @@ def create_profile():
     save_profiles(profiles)
     return jsonify({"id": pid, **profiles[pid]})
 
+
 @app.route("/api/profiles/<pid>", methods=["PUT"])
 def update_profile(pid):
-    data     = request.json
+    data = request.json
     profiles = load_profiles()
     if pid not in profiles:
         return jsonify({"error": "Profile not found"}), 404
@@ -303,6 +329,7 @@ def update_profile(pid):
     save_profiles(profiles)
     return jsonify({"id": pid, **profiles[pid]})
 
+
 @app.route("/api/profiles/<pid>", methods=["DELETE"])
 def delete_profile(pid):
     profiles = load_profiles()
@@ -313,10 +340,11 @@ def delete_profile(pid):
 
 # ── Upload (multi-file) ──
 
+
 @app.route("/api/upload", methods=["POST"])
 def upload():
-    files      = request.files.getlist("files")
-    accounts   = request.form.getlist("accounts")
+    files = request.files.getlist("files")
+    accounts = request.form.getlist("accounts")
     profile_id = request.form.get("profile_id")
 
     if not files:
@@ -327,17 +355,19 @@ def upload():
     file_batches = []
     for i, file in enumerate(files):
         account_name = accounts[i] if i < len(accounts) else "Spending"
-        content      = file.read().decode("utf-8-sig")
+        content = file.read().decode("utf-8-sig")
         transactions = parse_anz_csv(content)
         if transactions:
-            file_batches.append({"account_name": account_name, "transactions": transactions, "filename": file.filename})
+            file_batches.append(
+                {"account_name": account_name, "transactions": transactions, "filename": file.filename})
 
     if not file_batches:
         return jsonify({"error": "No transactions found in any file. Check your CSV format."}), 400
 
-    total    = sum(len(b["transactions"]) for b in file_batches)
-    job_id   = str(uuid.uuid4())
-    jobs[job_id] = {"queue": queue.Queue(), "transactions": [], "done": False, "profile_id": profile_id}
+    total = sum(len(b["transactions"]) for b in file_batches)
+    job_id = str(uuid.uuid4())
+    jobs[job_id] = {"queue": queue.Queue(), "transactions": [],
+                    "done": False, "profile_id": profile_id}
 
     thread = threading.Thread(
         target=run_categorization,
@@ -346,6 +376,7 @@ def upload():
     )
     thread.start()
     return jsonify({"job_id": job_id, "total": total, "files": len(file_batches)})
+
 
 @app.route("/api/stream/<job_id>")
 def stream(job_id):
@@ -369,12 +400,13 @@ def stream(job_id):
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
     )
 
+
 @app.route("/api/save-corrections", methods=["POST"])
 def save_corrections_route():
-    data                 = request.json
-    job_id               = data.get("job_id")
+    data = request.json
+    job_id = data.get("job_id")
     merchant_corrections = data.get("corrections", {})
-    profile_id           = jobs.get(job_id, {}).get("profile_id") if job_id else None
+    profile_id = jobs.get(job_id, {}).get("profile_id") if job_id else None
 
     if profile_id:
         corrections = load_corrections(profile_id)
@@ -387,36 +419,40 @@ def save_corrections_route():
 
     return jsonify({"saved": len(merchant_corrections)})
 
+
 @app.route("/api/import", methods=["POST"])
 def do_import():
-    data       = request.json
-    job_id     = data.get("job_id")
+    data = request.json
+    job_id = data.get("job_id")
 
     if not job_id or job_id not in jobs:
         return jsonify({"error": "Invalid job ID"}), 400
 
-    job          = jobs[job_id]
+    job = jobs[job_id]
     transactions = job.get("transactions", [])
-    profile_id   = job.get("profile_id")
-    profiles     = load_profiles()
+    profile_id = job.get("profile_id")
+    profiles = load_profiles()
 
     if not profile_id or profile_id not in profiles:
         return jsonify({"error": "Profile not found"}), 400
 
-    profile  = profiles[profile_id]
-    js_path  = os.path.join(SCRIPTS_DIR, "actual_import.js")
+    profile = profiles[profile_id]
+    js_path = os.path.join(SCRIPTS_DIR, "actual_import.js")
     if not os.path.exists(js_path):
         return jsonify({"error": "actual_import.js not found"}), 500
 
     # Group transactions by account and import each separately
-    accounts_seen = list(dict.fromkeys(t["account_name"] for t in transactions))
-    all_output    = []
+    accounts_seen = list(dict.fromkeys(
+        t["account_name"] for t in transactions))
+    all_output = []
 
     for account_name in accounts_seen:
-        account_txns = [t for t in transactions if t["account_name"] == account_name]
+        account_txns = [
+            t for t in transactions if t["account_name"] == account_name]
 
         with open(TRANSACTIONS_FILE, "w") as f:
-            json.dump({"account": account_name, "transactions": account_txns}, f, indent=2)
+            json.dump({"account": account_name,
+                      "transactions": account_txns}, f, indent=2)
 
         tmp_config = os.path.join(SCRIPTS_DIR, "import_config.json")
         with open(tmp_config, "w") as f:
@@ -442,9 +478,11 @@ def do_import():
     del jobs[job_id]
     return jsonify({"success": True, "output": "\n".join(all_output)})
 
+
 @app.route("/api/categories")
 def get_categories():
     return jsonify(CATEGORIES)
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5007, debug=False)
