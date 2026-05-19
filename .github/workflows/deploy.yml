@@ -19,7 +19,7 @@ jobs:
             set -e
             mkdir -p ~/.ssh
             chmod 700 ~/.ssh
-            if ! grep -q "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5" ~/.ssh/authorized_keys 2>/dev/null; then
+            if ! grep -q "elaw142@aucklanduni.ac.nz" ~/.ssh/authorized_keys 2>/dev/null; then
               echo "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOkpODuVRsffaR/Cc/e/Hz6driib+xB4qQOnSawUZ4PB elaw142@aucklanduni.ac.nz" >> ~/.ssh/authorized_keys
               chmod 600 ~/.ssh/authorized_keys
             fi
@@ -67,15 +67,17 @@ jobs:
             sudo systemctl enable ledger-web
             sudo systemctl enable --now ledger-sync.timer ledger-review-notify.timer
             sudo systemctl disable --now finance-importer || true
+            sudo chcon -R -t bin_t .venv/bin || true
             if ! sudo systemctl restart ledger-web; then
               sudo systemctl status ledger-web --no-pager || true
               sudo journalctl -u ledger-web -n 80 --no-pager || true
               exit 1
             fi
             echo "=== DIAGNOSTICS START ==="
-            echo "=== SSH KEY CHECK ==="
-            ls -la ~/.ssh/ || true
-            cat ~/.ssh/authorized_keys | grep "ssh-ed25519" || true
-            echo "=== DOCKER CADDY INSPECT ==="
-            sudo docker inspect caddy || true
+            echo "=== CADDYFILE ==="
+            cat /home/opc/caddy/Caddyfile || true
+            echo "=== CADDY COMPOSE ==="
+            cat /home/opc/caddy/docker-compose.yml || true
+            echo "=== LEDGER STATUS ==="
+            sudo systemctl status ledger-web || true
             echo "=== DIAGNOSTICS END ==="
