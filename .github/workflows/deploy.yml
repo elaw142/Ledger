@@ -73,18 +73,9 @@ jobs:
               exit 1
             fi
             echo "=== DIAGNOSTICS START ==="
-            echo "=== SELINUX STATUS ==="
-            sestatus || echo "sestatus not available"
-            echo "=== FILE PERMISSIONS ==="
-            ls -la /home/opc/finance/ledger/.venv/bin/gunicorn || true
-            ls -la /home/opc/finance/ledger/.venv/bin/python* || true
-            ls -ld /home/opc /home/opc/finance /home/opc/finance/ledger /home/opc/finance/ledger/.venv || true
-            echo "=== DOCKER CONTAINERS ==="
-            sudo docker ps -a || echo "docker not available"
-            echo "=== SYSTEMCTL STATUS LEDGER-WEB ==="
-            sudo systemctl status ledger-web || true
-            echo "=== JOURNALCTL LEDGER-WEB ==="
-            sudo journalctl -u ledger-web -n 50 --no-pager || true
-            echo "=== NETSTAT / SS ==="
-            sudo ss -tulpn || true
+            echo "=== SSH KEY CHECK ==="
+            ls -la ~/.ssh/ || true
+            cat ~/.ssh/authorized_keys | grep "ssh-ed25519" || true
+            echo "=== DOCKER CADDY INSPECT ==="
+            sudo docker inspect caddy || true
             echo "=== DIAGNOSTICS END ==="
