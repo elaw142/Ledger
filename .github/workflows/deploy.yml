@@ -17,11 +17,26 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             set -e
-            cd ~/finance/ledger
-            git pull origin main
+            APP_DIR=~/finance/ledger
+            if [ ! -d "$APP_DIR/.git" ]; then
+              rm -rf "$APP_DIR"
+              mkdir -p ~/finance
+              git clone https://github.com/elaw142/Ledger.git "$APP_DIR"
+            fi
+            cd "$APP_DIR"
+            git fetch origin main
+            git reset --hard origin/main
+            if [ ! -f .env ]; then
+              echo "Missing $APP_DIR/.env with Ledger secrets" >&2
+              exit 2
+            fi
             python3 -m venv .venv
             .venv/bin/pip install --upgrade pip
             .venv/bin/pip install -e .
             .venv/bin/ledger init-db
+            sudo cp deploy/ledger-*.service deploy/ledger-*.timer /etc/systemd/system/
+            sudo systemctl daemon-reload
+            sudo systemctl enable ledger-web
+            sudo systemctl enable --now ledger-sync.timer ledger-review-notify.timer
+            sudo systemctl disable --now finance-importer || true
             sudo systemctl restart ledger-web
-

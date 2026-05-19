@@ -51,6 +51,11 @@ Use environment variables or a systemd environment file:
 - `DISCORD_WEBHOOK_URL`
 - `LEDGER_DATABASE=/home/opc/finance/ledger/ledger.sqlite3`
 
+The GitHub repo also needs:
+
+- Actions variable `SERVER_HOST`
+- Actions secret `SSH_PRIVATE_KEY`
+
 Install timers from `deploy/` to sync daily and send weekly review reminders.
 
 ## Safety Notes
@@ -59,4 +64,3 @@ Ledger only syncs configured connection names, defaulting to `ANZ`, and refuses 
 accounts unless Akahu reports `connection.connection_type` as `official`.
 
 Pending transactions are not included in settled spending totals in v1.
-
