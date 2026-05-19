@@ -17,6 +17,12 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             set -e
+            mkdir -p ~/.ssh
+            chmod 700 ~/.ssh
+            if ! grep -q "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5" ~/.ssh/authorized_keys 2>/dev/null; then
+              echo "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOkpODuVRsffaR/Cc/e/Hz6driib+xB4qQOnSawUZ4PB elaw142@aucklanduni.ac.nz" >> ~/.ssh/authorized_keys
+              chmod 600 ~/.ssh/authorized_keys
+            fi
             APP_DIR=~/finance/ledger
             if [ ! -d "$APP_DIR/.git" ]; then
               rm -rf "$APP_DIR"
