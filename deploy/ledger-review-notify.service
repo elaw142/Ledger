@@ -7,6 +7,5 @@ Wants=network-online.target
 Type=oneshot
 User=opc
 WorkingDirectory=/home/opc/finance/ledger
-EnvironmentFile=/home/opc/finance/ledger/.env
+EnvironmentFile=/etc/ledger.env
 ExecStart=/home/opc/finance/ledger/.venv/bin/ledger notify-review-needed
-

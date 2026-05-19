@@ -43,6 +43,7 @@ jobs:
             set -a
             . ./.env
             set +a
+            sudo install -m 600 .env /etc/ledger.env
             python3 -m venv .venv
             .venv/bin/pip install --upgrade pip
             .venv/bin/pip install -e .
