@@ -30,15 +30,15 @@ jobs:
               umask 077
               LEDGER_BOOTSTRAP_PASSWORD="$(python3 -c 'import secrets; print(secrets.token_urlsafe(24))')"
               LEDGER_BOOTSTRAP_SECRET="$(python3 -c 'import secrets; print(secrets.token_urlsafe(48))')"
-              cat > .env <<EOF
-LEDGER_PUBLIC_URL=https://ledger.emlw.dev/
-LEDGER_DATABASE=/home/opc/finance/ledger/ledger.sqlite3
-LEDGER_SECRET_KEY=$LEDGER_BOOTSTRAP_SECRET
-LEDGER_ADMIN_PASSWORD=$LEDGER_BOOTSTRAP_PASSWORD
-AKAHU_APP_TOKEN=
-AKAHU_USER_TOKEN=
-DISCORD_WEBHOOK_URL=
-EOF
+              {
+                echo "LEDGER_PUBLIC_URL=https://ledger.emlw.dev/"
+                echo "LEDGER_DATABASE=/home/opc/finance/ledger/ledger.sqlite3"
+                echo "LEDGER_SECRET_KEY=$LEDGER_BOOTSTRAP_SECRET"
+                echo "LEDGER_ADMIN_PASSWORD=$LEDGER_BOOTSTRAP_PASSWORD"
+                echo "AKAHU_APP_TOKEN="
+                echo "AKAHU_USER_TOKEN="
+                echo "DISCORD_WEBHOOK_URL="
+              } > .env
             fi
             python3 -m venv .venv
             .venv/bin/pip install --upgrade pip
