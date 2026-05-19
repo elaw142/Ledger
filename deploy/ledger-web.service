@@ -1,0 +1,17 @@
+[Unit]
+Description=Ledger web app
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=opc
+WorkingDirectory=/home/opc/finance/ledger
+EnvironmentFile=/home/opc/finance/ledger/.env
+ExecStart=/home/opc/finance/ledger/.venv/bin/gunicorn --workers 2 --bind 127.0.0.1:5007 app:app
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+

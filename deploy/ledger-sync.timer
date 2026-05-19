@@ -1,0 +1,10 @@
+[Unit]
+Description=Run Ledger Akahu sync daily
+
+[Timer]
+OnCalendar=*-*-* 03:20:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+

@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Ledger</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+  </head>
+  <body class="login-page">
+    <main class="login-shell">
+      <section class="login-panel">
+        <p class="eyebrow">Ledger</p>
+        <h1>Sign in</h1>
+        {% if error %}
+          <div class="alert error">{{ error }}</div>
+        {% endif %}
+        <form method="post">
+          <label for="password">Password</label>
+          <input id="password" name="password" type="password" autocomplete="current-password" autofocus>
+          <button type="submit">Continue</button>
+        </form>
+      </section>
+    </main>
+  </body>
+</html>
+

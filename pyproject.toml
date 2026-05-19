@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ledger-akahu"
+version = "0.1.0"
+description = "Private Akahu-backed account and spending viewer"
+requires-python = ">=3.10"
+dependencies = [
+  "Flask==3.1.2",
+  "requests==2.32.5",
+  "gunicorn==23.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest==9.0.1",
+]
+
+[project.scripts]
+ledger = "ledger.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["ledger*"]
+

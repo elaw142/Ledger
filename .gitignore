@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.pyc
+*.sqlite3
+*.db
+.env
+.pytest_cache/
+.coverage
+htmlcov/
+instance/
+ledger-data/
+*.egg-info/

@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Ledger</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">Ledger v2</p>
+        <h1>Accounts and spending</h1>
+      </div>
+      <nav class="nav-tabs" aria-label="Primary">
+        <a href="/" data-view="dashboard">Dashboard</a>
+        <a href="/transactions" data-view="transactions">Transactions</a>
+        <a href="/categories" data-view="categories">Categories</a>
+        <a href="/review" data-view="review">Review</a>
+        <a href="/settings" data-view="settings">Settings</a>
+      </nav>
+      <form action="/logout" method="post">
+        <button class="ghost" type="submit">Log out</button>
+      </form>
+    </header>
+
+    <main class="layout">
+      <section class="status-strip">
+        <div>
+          <span class="label">Last sync</span>
+          <strong id="last-sync">No sync yet</strong>
+        </div>
+        <div>
+          <span class="label">Review</span>
+          <strong id="review-count">0</strong>
+        </div>
+        <div>
+          <span class="label">Public URL</span>
+          <strong>{{ public_url }}</strong>
+        </div>
+      </section>
+
+      <section class="view" id="view-dashboard">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Balances</p>
+            <h2>Accounts</h2>
+          </div>
+          <button id="sync-now" type="button">Sync now</button>
+        </div>
+        <div class="account-grid" id="accounts"></div>
+        <div class="two-column">
+          <section>
+            <div class="section-head compact">
+              <div>
+                <p class="eyebrow">This month</p>
+                <h2>Spending by category</h2>
+              </div>
+            </div>
+            <div id="category-spend" class="metric-list"></div>
+          </section>
+          <section>
+            <div class="section-head compact">
+              <div>
+                <p class="eyebrow">Needs review</p>
+                <h2>Queue</h2>
+              </div>
+            </div>
+            <div id="review-preview" class="review-stack"></div>
+          </section>
+        </div>
+      </section>
+
+      <section class="view" id="view-transactions">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Ledger</p>
+            <h2>Transactions</h2>
+          </div>
+        </div>
+        <div class="filters">
+          <select id="filter-account">
+            <option value="">All accounts</option>
+          </select>
+          <select id="filter-category">
+            <option value="">All categories</option>
+          </select>
+          <input id="filter-start" type="date">
+          <input id="filter-end" type="date">
+          <button id="apply-filters" type="button">Apply</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Merchant</th>
+                <th>Category</th>
+                <th>Account</th>
+                <th class="money">Amount</th>
+              </tr>
+            </thead>
+            <tbody id="transactions-table"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="view" id="view-categories">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Categories</p>
+            <h2>Spending</h2>
+          </div>
+        </div>
+        <div id="categories-full" class="metric-list"></div>
+      </section>
+
+      <section class="view" id="view-review">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Approve</p>
+            <h2>Merchant overrides</h2>
+          </div>
+        </div>
+        <div id="review-list" class="review-stack"></div>
+      </section>
+
+      <section class="view" id="view-settings">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Settings</p>
+            <h2>Sync and notifications</h2>
+          </div>
+        </div>
+        <div class="settings-actions">
+          <button id="sync-backfill" type="button">Backfill history</button>
+          <button id="test-discord" type="button">Test Discord</button>
+          <button id="notify-now" type="button">Send review reminder</button>
+        </div>
+        <pre id="settings-output"></pre>
+      </section>
+    </main>
+
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+  </body>
+</html>
+

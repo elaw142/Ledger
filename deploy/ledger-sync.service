@@ -1,0 +1,12 @@
+[Unit]
+Description=Ledger Akahu daily sync
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=opc
+WorkingDirectory=/home/opc/finance/ledger
+EnvironmentFile=/home/opc/finance/ledger/.env
+ExecStart=/home/opc/finance/ledger/.venv/bin/ledger sync
+
