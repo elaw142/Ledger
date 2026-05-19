@@ -8,10 +8,9 @@ Type=simple
 User=opc
 WorkingDirectory=/home/opc/finance/ledger
 EnvironmentFile=/home/opc/finance/ledger/.env
-ExecStart=/home/opc/finance/ledger/.venv/bin/gunicorn --workers 2 --bind 127.0.0.1:5007 app:app
+ExecStart=/home/opc/finance/ledger/.venv/bin/gunicorn --workers 2 --bind 127.0.0.1:5017 app:app
 Restart=always
 RestartSec=5
 
 [Install]
 WantedBy=multi-user.target
-

@@ -40,13 +40,28 @@ jobs:
                 echo "DISCORD_WEBHOOK_URL="
               } > .env
             fi
+            set -a
+            . ./.env
+            set +a
             python3 -m venv .venv
             .venv/bin/pip install --upgrade pip
             .venv/bin/pip install -e .
             .venv/bin/ledger init-db
             sudo cp deploy/ledger-*.service deploy/ledger-*.timer /etc/systemd/system/
+            if command -v caddy >/dev/null 2>&1; then
+              if [ -d /etc/caddy/conf.d ]; then
+                sudo cp deploy/caddy.conf /etc/caddy/conf.d/ledger.conf
+              elif [ -f /etc/caddy/Caddyfile ] && ! sudo grep -q "ledger.emlw.dev" /etc/caddy/Caddyfile; then
+                cat deploy/caddy.conf | sudo tee -a /etc/caddy/Caddyfile >/dev/null
+              fi
+              sudo systemctl reload caddy || sudo systemctl restart caddy || true
+            fi
             sudo systemctl daemon-reload
             sudo systemctl enable ledger-web
             sudo systemctl enable --now ledger-sync.timer ledger-review-notify.timer
             sudo systemctl disable --now finance-importer || true
-            sudo systemctl restart ledger-web
+            if ! sudo systemctl restart ledger-web; then
+              sudo systemctl status ledger-web --no-pager || true
+              sudo journalctl -u ledger-web -n 80 --no-pager || true
+              exit 1
+            fi
