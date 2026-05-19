@@ -73,11 +73,3 @@ jobs:
               sudo journalctl -u ledger-web -n 80 --no-pager || true
               exit 1
             fi
-            echo "=== DIAGNOSTICS START ==="
-            echo "=== CADDYFILE ==="
-            cat /home/opc/caddy/Caddyfile || true
-            echo "=== CADDY COMPOSE ==="
-            cat /home/opc/caddy/docker-compose.yml || true
-            echo "=== LEDGER STATUS ==="
-            sudo systemctl status ledger-web || true
-            echo "=== DIAGNOSTICS END ==="
