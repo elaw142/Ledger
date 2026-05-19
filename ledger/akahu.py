@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date, timedelta
+from typing import Optional
 from urllib.parse import urljoin
 
 import requests
@@ -27,14 +28,14 @@ class AkahuClient:
             "Accept": "application/json",
         }
 
-    def _get(self, path: str, params: dict | None = None) -> dict:
+    def _get(self, path: str, params: Optional[dict] = None) -> dict:
         url = urljoin(self.base_url, path.lstrip("/"))
         response = requests.get(url, headers=self.headers, params=params or {}, timeout=self.timeout)
         if response.status_code >= 400:
             raise AkahuError(f"Akahu request failed {response.status_code}: {response.text[:500]}")
         return response.json()
 
-    def _paged(self, path: str, params: dict | None = None) -> list[dict]:
+    def _paged(self, path: str, params: Optional[dict] = None) -> list[dict]:
         items: list[dict] = []
         cursor = None
         while True:
@@ -65,9 +66,8 @@ class AkahuClient:
     def accounts(self) -> list[dict]:
         return self._paged("/v1/accounts")
 
-    def transactions(self, account_id: str, *, since_days: int | None = None) -> list[dict]:
+    def transactions(self, account_id: str, *, since_days: Optional[int] = None) -> list[dict]:
         params: dict[str, str] = {}
         if since_days:
             params["start"] = (date.today() - timedelta(days=since_days)).isoformat()
         return self._paged(f"/v1/accounts/{account_id}/transactions", params=params)
-

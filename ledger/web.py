@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from functools import wraps
+from typing import Optional, Type, Union
 
 from flask import Flask, current_app, jsonify, redirect, render_template, request, session, url_for
 from werkzeug.security import check_password_hash
@@ -13,7 +14,7 @@ from .queries import accounts, categories, latest_sync, review_count, spending_b
 from .sync import apply_merchant_override, apply_transaction_override, sync_akahu
 
 
-def create_app(config_object: type[Config] | dict | None = None) -> Flask:
+def create_app(config_object: Optional[Union[Type[Config], dict]] = None) -> Flask:
     app = Flask(__name__)
     app.config.from_object(Config)
     if config_object:
@@ -203,4 +204,3 @@ def register_routes(app: Flask) -> None:
         )
         status_code = 200 if result["status"] in {"sent", "skipped"} else 502
         return jsonify(result), status_code
-

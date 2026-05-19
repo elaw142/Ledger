@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from typing import Optional, Tuple
 
 from .akahu import AkahuClient
 from .db import connection, utc_now
@@ -20,7 +21,7 @@ class SyncResult:
     transactions_seen: int
     new_transactions: int
     updated_transactions: int
-    error: str | None = None
+    error: Optional[str] = None
 
     def as_dict(self) -> dict:
         return {
@@ -87,7 +88,7 @@ def _transaction_date(transaction: dict) -> str:
     return str(value)[:10]
 
 
-def _merchant(transaction: dict) -> tuple[str | None, str | None]:
+def _merchant(transaction: dict) -> Tuple[Optional[str], Optional[str]]:
     merchant = transaction.get("merchant")
     if isinstance(merchant, dict):
         return merchant.get("_id") or merchant.get("id"), compact(merchant.get("name"))
@@ -96,7 +97,7 @@ def _merchant(transaction: dict) -> tuple[str | None, str | None]:
     return None, None
 
 
-def _category(transaction: dict) -> tuple[str | None, str | None]:
+def _category(transaction: dict) -> Tuple[Optional[str], Optional[str]]:
     category = transaction.get("category")
     if isinstance(category, dict):
         return category.get("_id") or category.get("id"), compact(category.get("name") or category.get("label"))
@@ -115,15 +116,15 @@ def _description(transaction: dict) -> str:
     )
 
 
-def _is_useful_category(category_name: str | None) -> bool:
+def _is_useful_category(category_name: Optional[str]) -> bool:
     return key(category_name) not in UNCERTAIN_CATEGORIES
 
 
-def _source_merchant_key(merchant_name: str | None, description: str) -> str:
+def _source_merchant_key(merchant_name: Optional[str], description: str) -> str:
     return key(merchant_name or description)
 
 
-def _effective_fields(con, merchant_key: str, transaction_id: str, merchant_name: str | None, category_name: str | None):
+def _effective_fields(con, merchant_key: str, transaction_id: str, merchant_name: Optional[str], category_name: Optional[str]):
     merchant_override = con.execute(
         "SELECT display_merchant, category_name, category_id FROM merchant_overrides WHERE merchant_key = ?",
         (merchant_key,),
@@ -145,7 +146,7 @@ def _effective_fields(con, merchant_key: str, transaction_id: str, merchant_name
     return effective_merchant, effective_category
 
 
-def _review_state(existing, category_name: str | None, effective_category: str | None, category_changed: bool) -> tuple[str, str | None]:
+def _review_state(existing, category_name: Optional[str], effective_category: Optional[str], category_changed: bool) -> Tuple[str, Optional[str]]:
     if not _is_useful_category(effective_category or category_name):
         return "needs_review", "missing_category"
     if category_changed:
@@ -306,7 +307,7 @@ def sync_akahu(
     client: AkahuClient,
     *,
     allowed_connections: list[str],
-    since_days: int | None,
+    since_days: Optional[int],
 ) -> SyncResult:
     started_at = utc_now()
     with connection(database_path) as con:
@@ -355,9 +356,9 @@ def apply_merchant_override(
     database_path: str,
     *,
     merchant_key: str,
-    display_merchant: str | None,
-    category_name: str | None,
-    category_id: str | None = None,
+    display_merchant: Optional[str],
+    category_name: Optional[str],
+    category_id: Optional[str] = None,
 ) -> int:
     merchant_key = key(merchant_key)
     with connection(database_path) as con:
@@ -394,9 +395,9 @@ def apply_transaction_override(
     database_path: str,
     *,
     transaction_id: str,
-    display_merchant: str | None,
-    category_name: str | None,
-    category_id: str | None = None,
+    display_merchant: Optional[str],
+    category_name: Optional[str],
+    category_id: Optional[str] = None,
 ) -> None:
     with connection(database_path) as con:
         con.execute(

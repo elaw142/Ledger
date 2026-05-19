@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 from datetime import date
+from typing import Optional
 
 from .db import connection, row_to_dict
 
 
-def latest_sync(database_path: str) -> dict | None:
+def latest_sync(database_path: str) -> Optional[dict]:
     with connection(database_path) as con:
         row = con.execute(
             "SELECT * FROM sync_runs ORDER BY id DESC LIMIT 1"
@@ -50,7 +51,7 @@ def categories(database_path: str) -> list[str]:
         return [row["category"] for row in rows]
 
 
-def spending_by_category(database_path: str, *, start: str | None = None, end: str | None = None) -> list[dict]:
+def spending_by_category(database_path: str, *, start: Optional[str] = None, end: Optional[str] = None) -> list[dict]:
     start = start or date.today().replace(day=1).isoformat()
     params: list[str] = [start]
     clause = "date >= ? AND amount_cents < 0 AND pending = 0"
@@ -109,4 +110,3 @@ def transactions(database_path: str, filters: dict) -> list[dict]:
                 params,
             )
         ]
-

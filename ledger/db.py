@@ -5,6 +5,7 @@ import os
 import sqlite3
 from contextlib import contextmanager
 from datetime import datetime, timezone
+from typing import Optional
 
 
 def utc_now() -> str:
@@ -139,7 +140,7 @@ def init_db(database_path: str) -> None:
         )
 
 
-def row_to_dict(row: sqlite3.Row | None) -> dict | None:
+def row_to_dict(row: Optional[sqlite3.Row]) -> Optional[dict]:
     if row is None:
         return None
     result = dict(row)
@@ -150,4 +151,3 @@ def row_to_dict(row: sqlite3.Row | None) -> dict | None:
             except json.JSONDecodeError:
                 pass
     return result
-

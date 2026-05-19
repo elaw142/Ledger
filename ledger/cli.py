@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+from typing import Optional
 
 from werkzeug.security import generate_password_hash
 
@@ -17,7 +18,7 @@ def _client(config: Config) -> AkahuClient:
     return AkahuClient(config.AKAHU_BASE_URL, config.AKAHU_APP_TOKEN, config.AKAHU_USER_TOKEN)
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(argv: Optional[list[str]] = None) -> int:
     parser = argparse.ArgumentParser(prog="ledger")
     sub = parser.add_subparsers(dest="command", required=True)
 
@@ -75,4 +76,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main(sys.argv[1:]))
-
