@@ -3,36 +3,36 @@
 :root {
   color-scheme: light;
 
-  --bg: #F5F2EC;
-  --surface: #FDFCF9;
-  --surface-2: #EDE9E1;
-  --surface-3: #E4DFD5;
+  --bg: #f5f2ec;
+  --surface: #fdfcf9;
+  --surface-2: #ede9e1;
+  --surface-3: #e4dfd5;
 
-  --border: #D9D3C7;
-  --border-2: #C9C2B4;
+  --border: #d9d3c7;
+  --border-2: #c9c2b4;
 
-  --text: #1A1714;
-  --text-2: #6B6560;
-  --text-3: #A09890;
-  --text-inv: #FDFCF9;
+  --text: #1a1714;
+  --text-2: #6b6560;
+  --text-3: #a09890;
+  --text-inv: #fdfcf9;
 
-  --accent: #1A6840;
-  --accent-mid: #2D8A57;
-  --accent-light: #D6EDDF;
-  --accent-dim: #4A7C5F;
+  --accent: #1a6840;
+  --accent-mid: #2d8a57;
+  --accent-light: #d6eddf;
+  --accent-dim: #4a7c5f;
 
-  --spend: #8B3A2A;
-  --spend-light: #F2DDD9;
-  --warn: #7A5C1E;
-  --warn-light: #F2EAD6;
-  --danger: #8B2A2A;
-  --danger-light: #F2D9D9;
+  --spend: #8b3a2a;
+  --spend-light: #f2ddd9;
+  --warn: #7a5c1e;
+  --warn-light: #f2ead6;
+  --danger: #8b2a2a;
+  --danger-light: #f2d9d9;
 
-  --series-1: #1A6840;
-  --series-2: #8B3A2A;
-  --series-3: #3A5F8B;
-  --series-4: #7A5C1E;
-  --series-5: #5A3A7A;
+  --series-1: #1a6840;
+  --series-2: #8b3a2a;
+  --series-3: #3a5f8b;
+  --series-4: #7a5c1e;
+  --series-5: #5a3a7a;
 
   --font-serif: "Libre Baskerville", Georgia, serif;
   --font-sans: "Jost", ui-sans-serif, system-ui, sans-serif;
@@ -95,7 +95,10 @@ button {
   font-weight: 500;
   letter-spacing: 0.02em;
   cursor: pointer;
-  transition: background var(--transition), color var(--transition), border-color var(--transition);
+  transition:
+    background var(--transition),
+    color var(--transition),
+    border-color var(--transition);
 }
 
 button:hover {
@@ -632,6 +635,25 @@ td:first-child {
   white-space: nowrap;
 }
 
+.transaction-actions {
+  min-width: 220px;
+}
+
+.transaction-edit-form {
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) auto auto;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.transaction-edit-form select {
+  min-width: 160px;
+}
+
+.transaction-edit-form button {
+  white-space: nowrap;
+}
+
 .table-note {
   display: block;
   margin-top: var(--space-1);
@@ -676,7 +698,7 @@ td:first-child {
 }
 
 .pill.muted {
-  border-color: #C9D8CE;
+  border-color: #c9d8ce;
   background: var(--accent-light);
   color: var(--accent);
 }
@@ -726,7 +748,10 @@ td:first-child {
 
 .category-edit {
   display: grid;
-  grid-template-columns: auto minmax(190px, 1fr) 90px minmax(150px, 0.75fr) minmax(170px, 0.85fr) auto;
+  grid-template-columns: auto minmax(190px, 1fr) 90px minmax(
+      150px,
+      0.75fr
+    ) minmax(170px, 0.85fr) auto;
   gap: var(--space-3);
   align-items: start;
 }
@@ -930,6 +955,7 @@ pre {
   .period-form,
   .filters,
   .review-form,
+  .transaction-edit-form,
   .settings-form,
   .category-create,
   .category-edit {

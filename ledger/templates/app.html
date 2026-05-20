@@ -1,10 +1,10 @@
 <!doctype html>
 <html lang="en">
   <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Ledger</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}" />
   </head>
   <body>
     <div class="app-shell">
@@ -62,11 +62,11 @@
             <form id="period-form" class="period-form">
               <label>
                 Start
-                <input id="period-start" type="date">
+                <input id="period-start" type="date" />
               </label>
               <label>
                 End
-                <input id="period-end" type="date">
+                <input id="period-end" type="date" />
               </label>
               <button type="submit">Apply</button>
             </form>
@@ -139,11 +139,11 @@
             </label>
             <label>
               Start
-              <input id="filter-start" type="date">
+              <input id="filter-start" type="date" />
             </label>
             <label>
               End
-              <input id="filter-end" type="date">
+              <input id="filter-end" type="date" />
             </label>
             <button id="apply-filters" type="button">Apply</button>
           </div>
@@ -156,6 +156,7 @@
                   <th>Category</th>
                   <th class="money">Amount</th>
                   <th>Source</th>
+                  <th>Update</th>
                 </tr>
               </thead>
               <tbody id="transactions-table"></tbody>
@@ -173,11 +174,16 @@
           <form id="category-form" class="category-create">
             <label>
               Category name
-              <input name="name" maxlength="64" required placeholder="e.g. Home repairs">
+              <input
+                name="name"
+                maxlength="64"
+                required
+                placeholder="e.g. Home repairs"
+              />
             </label>
             <label>
               Color
-              <input name="color" type="color" value="#006D77">
+              <input name="color" type="color" value="#006D77" />
             </label>
             <button type="submit">Create category</button>
           </form>
@@ -209,15 +215,30 @@
           <form id="settings-form" class="settings-form">
             <label>
               Akahu App ID token
-              <input name="AKAHU_APP_TOKEN" type="password" autocomplete="off" placeholder="Leave blank to keep existing">
+              <input
+                name="AKAHU_APP_TOKEN"
+                type="password"
+                autocomplete="off"
+                placeholder="Leave blank to keep existing"
+              />
             </label>
             <label>
               Akahu User Access token
-              <input name="AKAHU_USER_TOKEN" type="password" autocomplete="off" placeholder="Leave blank to keep existing">
+              <input
+                name="AKAHU_USER_TOKEN"
+                type="password"
+                autocomplete="off"
+                placeholder="Leave blank to keep existing"
+              />
             </label>
             <label>
               Discord webhook URL
-              <input name="DISCORD_WEBHOOK_URL" type="password" autocomplete="off" placeholder="Leave blank to keep existing">
+              <input
+                name="DISCORD_WEBHOOK_URL"
+                type="password"
+                autocomplete="off"
+                placeholder="Leave blank to keep existing"
+              />
             </label>
             <button type="submit">Save settings</button>
           </form>

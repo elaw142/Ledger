@@ -2,6 +2,8 @@ const state = {
   accounts: [],
   categories: [],
   transactions: [],
+  editingTransactionId: null,
+  reviewDrafts: {},
   summary: null,
   settings: null,
   period: {
@@ -57,14 +59,18 @@ async function api(path, options = {}) {
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(data.error || data.message || `Request failed: ${response.status}`);
+    throw new Error(
+      data.error || data.message || `Request failed: ${response.status}`,
+    );
   }
   return data;
 }
 
 function activeView() {
   const path = window.location.pathname.replace("/", "") || "dashboard";
-  return ["transactions", "categories", "review", "settings"].includes(path) ? path : "dashboard";
+  return ["transactions", "categories", "review", "settings"].includes(path)
+    ? path
+    : "dashboard";
 }
 
 function setActiveView() {
@@ -78,7 +84,10 @@ function setActiveView() {
 }
 
 function categoryByName(name) {
-  return state.categories.find((category) => category.name.toLowerCase() === String(name || "").toLowerCase());
+  return state.categories.find(
+    (category) =>
+      category.name.toLowerCase() === String(name || "").toLowerCase(),
+  );
 }
 
 function categoryColor(name) {
@@ -88,14 +97,20 @@ function categoryColor(name) {
 function categoryOptions(selected = "", options = {}) {
   const selectedName = selected || "Uncategorized";
   const exclude = String(options.exclude || "").toLowerCase();
-  const rows = state.categories.filter((category) => category.name.toLowerCase() !== exclude);
-  const hasSelected = rows.some((category) => category.name.toLowerCase() === selectedName.toLowerCase());
-  const optionRows = hasSelected || !selectedName
-    ? rows
-    : [{ name: selectedName, color: "#006D77" }, ...rows];
+  const rows = state.categories.filter(
+    (category) => category.name.toLowerCase() !== exclude,
+  );
+  const hasSelected = rows.some(
+    (category) => category.name.toLowerCase() === selectedName.toLowerCase(),
+  );
+  const optionRows =
+    hasSelected || !selectedName
+      ? rows
+      : [{ name: selectedName, color: "#006D77" }, ...rows];
   return optionRows
     .map((category) => {
-      const isSelected = category.name.toLowerCase() === selectedName.toLowerCase();
+      const isSelected =
+        category.name.toLowerCase() === selectedName.toLowerCase();
       return `<option value="${escapeAttr(category.name)}" ${isSelected ? "selected" : ""}>${escapeHtml(category.name)}</option>`;
     })
     .join("");
@@ -106,12 +121,17 @@ function renderStatus() {
   document.querySelector("#last-sync").textContent = latest?.finished_at
     ? `${latest.status} at ${shortDate(latest.finished_at)}`
     : "No sync yet";
-  document.querySelector("#review-count").textContent = String(state.summary?.review_count || 0);
+  document.querySelector("#review-count").textContent = String(
+    state.summary?.review_count || 0,
+  );
   document.querySelector("#period-label").textContent = periodLabel();
 }
 
 function periodLabel() {
-  if (state.period.start === firstDayOfMonth() && state.period.end === todayIso()) {
+  if (
+    state.period.start === firstDayOfMonth() &&
+    state.period.end === todayIso()
+  ) {
     return "This month";
   }
   return `${shortDate(state.period.start)} to ${shortDate(state.period.end)}`;
@@ -144,7 +164,8 @@ function renderKpis() {
       value: state.summary?.spending_by_category?.[0]
         ? money(state.summary.spending_by_category[0].spend_cents || 0)
         : money(0),
-      note: state.summary?.spending_by_category?.[0]?.category || "No spending yet",
+      note:
+        state.summary?.spending_by_category?.[0]?.category || "No spending yet",
     },
   ];
   document.querySelector("#kpi-grid").innerHTML = cards
@@ -182,7 +203,9 @@ function renderAccounts() {
 }
 
 function renderCategorySpend() {
-  document.querySelector("#category-spend").innerHTML = categoryRows(state.summary?.spending_by_category || []);
+  document.querySelector("#category-spend").innerHTML = categoryRows(
+    state.summary?.spending_by_category || [],
+  );
 }
 
 function categoryRows(rows) {
@@ -192,7 +215,10 @@ function categoryRows(rows) {
   const max = Math.max(...rows.map((row) => Number(row.spend_cents || 0)), 1);
   return rows
     .map((row) => {
-      const width = Math.max(4, Math.round((Number(row.spend_cents || 0) / max) * 100));
+      const width = Math.max(
+        4,
+        Math.round((Number(row.spend_cents || 0) / max) * 100),
+      );
       const color = row.color || categoryColor(row.category);
       return `
         <div class="metric-row" style="--category-color: ${escapeAttr(color)}">
@@ -215,7 +241,10 @@ function renderMonthlyChart() {
   const max = Math.max(...rows.map((row) => Number(row.spend_cents || 0)), 1);
   root.innerHTML = rows
     .map((row) => {
-      const width = Math.max(4, Math.round((Number(row.spend_cents || 0) / max) * 100));
+      const width = Math.max(
+        4,
+        Math.round((Number(row.spend_cents || 0) / max) * 100),
+      );
       return `
         <div class="month-row">
           <span class="month-label">${escapeHtml(monthLabel(row.month))}</span>
@@ -281,12 +310,22 @@ function fillFilters() {
   const categorySelect = document.querySelector("#filter-category");
   const currentAccount = accountSelect.value;
   const currentCategory = categorySelect.value;
-  accountSelect.innerHTML = `<option value="">All accounts</option>` + state.accounts
-    .map((account) => `<option value="${escapeAttr(account.id)}">${escapeHtml(account.name)}</option>`)
-    .join("");
-  categorySelect.innerHTML = `<option value="">All categories</option>` + state.categories
-    .map((category) => `<option value="${escapeAttr(category.name)}">${escapeHtml(category.name)}</option>`)
-    .join("");
+  accountSelect.innerHTML =
+    `<option value="">All accounts</option>` +
+    state.accounts
+      .map(
+        (account) =>
+          `<option value="${escapeAttr(account.id)}">${escapeHtml(account.name)}</option>`,
+      )
+      .join("");
+  categorySelect.innerHTML =
+    `<option value="">All categories</option>` +
+    state.categories
+      .map(
+        (category) =>
+          `<option value="${escapeAttr(category.name)}">${escapeHtml(category.name)}</option>`,
+      )
+      .join("");
   accountSelect.value = currentAccount;
   categorySelect.value = currentCategory;
 }
@@ -323,12 +362,13 @@ async function loadTransactions(reviewOnly = false) {
 function renderTransactions() {
   const root = document.querySelector("#transactions-table");
   if (!state.transactions.length) {
-    root.innerHTML = `<tr><td colspan="5">No transactions found.</td></tr>`;
+    root.innerHTML = `<tr><td colspan="6">No transactions found.</td></tr>`;
     return;
   }
   root.innerHTML = state.transactions
     .map((tx) => {
       const amountClass = tx.amount_cents < 0 ? "spend" : "income";
+      const isEditing = state.editingTransactionId === tx.id;
       return `
         <tr>
           <td>${shortDate(tx.date)}</td>
@@ -339,6 +379,13 @@ function renderTransactions() {
           <td>${categoryChip(tx.effective_category || "Uncategorized")}</td>
           <td class="money ${amountClass}">${money(tx.amount_cents, tx.currency)}</td>
           <td><span class="pill muted">${escapeHtml(tx.review_status || "auto")}</span></td>
+          <td class="transaction-actions">
+            ${
+              isEditing
+                ? transactionEditForm(tx)
+                : `<button type="button" class="ghost edit-transaction" data-transaction="${escapeAttr(tx.id)}">Edit</button>`
+            }
+          </td>
         </tr>
       `;
     })
@@ -354,9 +401,23 @@ function categoryChip(name) {
 }
 
 function renderReview() {
-  const reviewItems = state.transactions.filter((tx) => tx.review_status === "needs_review");
-  document.querySelector("#review-preview").innerHTML = reviewMarkup(reviewItems.slice(0, 5), true);
-  document.querySelector("#review-list").innerHTML = reviewMarkup(reviewItems, false);
+  const reviewItems = state.transactions.filter(
+    (tx) => tx.review_status === "needs_review",
+  );
+  const reviewIds = new Set(reviewItems.map((tx) => tx.id));
+  for (const transactionId of Object.keys(state.reviewDrafts)) {
+    if (!reviewIds.has(transactionId)) {
+      delete state.reviewDrafts[transactionId];
+    }
+  }
+  document.querySelector("#review-preview").innerHTML = reviewMarkup(
+    reviewItems.slice(0, 5),
+    true,
+  );
+  document.querySelector("#review-list").innerHTML = reviewMarkup(
+    reviewItems,
+    false,
+  );
 }
 
 function reviewMarkup(items, compact) {
@@ -382,6 +443,8 @@ function reviewMarkup(items, compact) {
 }
 
 function reviewForm(tx) {
+  const selectedCategory =
+    state.reviewDrafts[tx.id] || tx.effective_category || "Uncategorized";
   return `
     <form class="review-form" data-transaction="${escapeAttr(tx.id)}" data-merchant-key="${escapeAttr(tx.merchant_key)}">
       <label>
@@ -391,10 +454,22 @@ function reviewForm(tx) {
       <label>
         Category
         <select name="category_name" required>
-          ${categoryOptions(tx.effective_category || "Uncategorized")}
+          ${categoryOptions(selectedCategory)}
         </select>
       </label>
       <button type="submit">Approve</button>
+    </form>
+  `;
+}
+
+function transactionEditForm(tx) {
+  return `
+    <form class="transaction-edit-form" data-transaction="${escapeAttr(tx.id)}" data-merchant="${escapeAttr(tx.effective_merchant)}">
+      <select name="category_name" required>
+        ${categoryOptions(tx.effective_category || "Uncategorized")}
+      </select>
+      <button type="submit">Save</button>
+      <button type="button" class="ghost cancel-transaction-edit">Cancel</button>
     </form>
   `;
 }
@@ -409,10 +484,54 @@ async function approveReview(event) {
     merchant_key: form.dataset.merchantKey,
     apply_to_merchant: true,
   };
-  await api(`/api/transactions/${encodeURIComponent(form.dataset.transaction)}/override`, {
+  await api(
+    `/api/transactions/${encodeURIComponent(form.dataset.transaction)}/override`,
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    },
+  );
+  delete state.reviewDrafts[form.dataset.transaction];
+  await refresh();
+  await loadTransactions(activeView() === "review");
+}
+
+function handleReviewDraftChange(event) {
+  const select = event.target.closest(".review-form select[name='category_name']");
+  if (!select) return;
+  const form = select.closest(".review-form");
+  if (!form) return;
+  state.reviewDrafts[form.dataset.transaction] = select.value;
+}
+
+function handleTransactionActions(event) {
+  const editButton = event.target.closest(".edit-transaction");
+  if (editButton) {
+    state.editingTransactionId = editButton.dataset.transaction;
+    renderTransactions();
+    return;
+  }
+  const cancelButton = event.target.closest(".cancel-transaction-edit");
+  if (cancelButton) {
+    state.editingTransactionId = null;
+    renderTransactions();
+  }
+}
+
+async function saveTransactionEdit(event) {
+  const form = event.target.closest(".transaction-edit-form");
+  if (!form) return;
+  event.preventDefault();
+  const transactionId = form.dataset.transaction;
+  const payload = {
+    category_name: form.elements.category_name.value,
+    display_merchant: form.dataset.merchant,
+  };
+  await api(`/api/transactions/${encodeURIComponent(transactionId)}/override`, {
     method: "POST",
     body: JSON.stringify(payload),
   });
+  state.editingTransactionId = null;
   await refresh();
   await loadTransactions(activeView() === "review");
 }
@@ -444,7 +563,9 @@ async function refresh() {
 }
 
 async function syncNow(backfill = false) {
-  const button = backfill ? document.querySelector("#sync-backfill") : document.querySelector("#sync-now");
+  const button = backfill
+    ? document.querySelector("#sync-backfill")
+    : document.querySelector("#sync-now");
   const original = button.textContent;
   button.disabled = true;
   button.textContent = "Syncing";
@@ -468,7 +589,11 @@ async function saveSettings(event) {
   event.preventDefault();
   const form = event.currentTarget;
   const payload = {};
-  for (const field of ["AKAHU_APP_TOKEN", "AKAHU_USER_TOKEN", "DISCORD_WEBHOOK_URL"]) {
+  for (const field of [
+    "AKAHU_APP_TOKEN",
+    "AKAHU_USER_TOKEN",
+    "DISCORD_WEBHOOK_URL",
+  ]) {
     const value = form.elements[field].value.trim();
     if (value) payload[field] = value;
   }
@@ -523,7 +648,9 @@ async function deleteCategory(event) {
   if (Number(form.dataset.count || 0) > 0) {
     const replacement = form.elements.replacement.value;
     if (!replacement) {
-      settingsOutput({ error: "Choose a replacement category before deleting." });
+      settingsOutput({
+        error: "Choose a replacement category before deleting.",
+      });
       form.elements.replacement.focus();
       return;
     }
@@ -539,7 +666,8 @@ async function deleteCategory(event) {
 
 async function applyPeriod(event) {
   event.preventDefault();
-  state.period.start = document.querySelector("#period-start").value || firstDayOfMonth();
+  state.period.start =
+    document.querySelector("#period-start").value || firstDayOfMonth();
   state.period.end = document.querySelector("#period-end").value || todayIso();
   await refresh();
 }
@@ -567,20 +695,56 @@ async function boot() {
   syncPeriodInputs();
   await refresh();
   await loadTransactions(activeView() === "review");
-  document.querySelector("#apply-filters")?.addEventListener("click", () => loadTransactions(false));
-  document.querySelector("#period-form")?.addEventListener("submit", applyPeriod);
-  document.querySelector("#sync-now")?.addEventListener("click", () => syncNow(false));
-  document.querySelector("#sync-backfill")?.addEventListener("click", () => syncNow(true));
-  document.querySelector("#review-list")?.addEventListener("submit", approveReview);
-  document.querySelector("#settings-form")?.addEventListener("submit", saveSettings);
-  document.querySelector("#category-form")?.addEventListener("submit", createCategory);
-  document.querySelector("#category-list")?.addEventListener("submit", saveCategory);
-  document.querySelector("#category-list")?.addEventListener("click", deleteCategory);
-  document.querySelector("#test-discord")?.addEventListener("click", async () => {
-    settingsOutput(await api("/api/notifications/test", { method: "POST", body: "{}" }));
-  });
+  document
+    .querySelector("#apply-filters")
+    ?.addEventListener("click", () => loadTransactions(false));
+  document
+    .querySelector("#period-form")
+    ?.addEventListener("submit", applyPeriod);
+  document
+    .querySelector("#sync-now")
+    ?.addEventListener("click", () => syncNow(false));
+  document
+    .querySelector("#sync-backfill")
+    ?.addEventListener("click", () => syncNow(true));
+  document
+    .querySelector("#review-list")
+    ?.addEventListener("submit", approveReview);
+  document
+    .querySelector("#review-list")
+    ?.addEventListener("change", handleReviewDraftChange);
+  document
+    .querySelector("#settings-form")
+    ?.addEventListener("submit", saveSettings);
+  document
+    .querySelector("#category-form")
+    ?.addEventListener("submit", createCategory);
+  document
+    .querySelector("#category-list")
+    ?.addEventListener("submit", saveCategory);
+  document
+    .querySelector("#category-list")
+    ?.addEventListener("click", deleteCategory);
+  document
+    .querySelector("#transactions-table")
+    ?.addEventListener("click", handleTransactionActions);
+  document
+    .querySelector("#transactions-table")
+    ?.addEventListener("submit", saveTransactionEdit);
+  document
+    .querySelector("#test-discord")
+    ?.addEventListener("click", async () => {
+      settingsOutput(
+        await api("/api/notifications/test", { method: "POST", body: "{}" }),
+      );
+    });
   document.querySelector("#notify-now")?.addEventListener("click", async () => {
-    settingsOutput(await api("/api/notifications/review-needed", { method: "POST", body: "{}" }));
+    settingsOutput(
+      await api("/api/notifications/review-needed", {
+        method: "POST",
+        body: "{}",
+      }),
+    );
   });
 }
 
