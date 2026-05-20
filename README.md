@@ -55,6 +55,11 @@ The GitHub repo also needs:
 
 - Actions variable `SERVER_HOST`
 - Actions secret `SSH_PRIVATE_KEY`
+- Optional Actions secrets `AKAHU_APP_TOKEN`, `AKAHU_USER_TOKEN`,
+  `DISCORD_WEBHOOK_URL`, `LEDGER_ADMIN_PASSWORD`, or `LEDGER_PASSWORD_HASH`.
+
+Akahu and Discord tokens can also be saved from the in-app Settings page after
+signing in. Environment/GitHub secrets remain preferred for production.
 
 Install timers from `deploy/` to sync daily and send weekly review reminders.
 
