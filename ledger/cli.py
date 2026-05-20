@@ -11,7 +11,7 @@ from .config import Config
 from .db import init_db
 from .notify import notify_review_needed
 from .settings import get_setting
-from .sync import sync_akahu
+from .sync import detect_transfers, sync_akahu
 from .web import create_app
 
 
@@ -31,6 +31,8 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     sync_parser = sub.add_parser("sync", help="Sync Akahu accounts, balances, and settled transactions")
     sync_parser.add_argument("--backfill", action="store_true", help="Fetch all Akahu-accessible history")
+
+    sub.add_parser("detect-transfers", help="Categorize internal account transfers")
 
     sub.add_parser("notify-review-needed", help="Send a Discord reminder when transactions need review")
 
@@ -64,6 +66,11 @@ def main(argv: Optional[list[str]] = None) -> int:
         )
         print(result.as_dict())
         return 0 if result.status == "success" else 1
+
+    if args.command == "detect-transfers":
+        init_db(config.DATABASE)
+        print({"transfers_updated": detect_transfers(config.DATABASE)})
+        return 0
 
     if args.command == "notify-review-needed":
         init_db(config.DATABASE)

@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import date
 from typing import Optional
 
+from .categories import TRANSFER_CATEGORY
 from .db import connection, row_to_dict
 
 
@@ -54,7 +55,8 @@ def categories(database_path: str) -> list[str]:
 def spending_by_category(database_path: str, *, start: Optional[str] = None, end: Optional[str] = None) -> list[dict]:
     start = start or date.today().replace(day=1).isoformat()
     params: list[str] = [start]
-    clause = "date >= ? AND amount_cents < 0 AND pending = 0"
+    clause = "date >= ? AND amount_cents < 0 AND pending = 0 AND COALESCE(effective_category, '') != ?"
+    params.append(TRANSFER_CATEGORY)
     if end:
         clause += " AND date <= ?"
         params.append(end)

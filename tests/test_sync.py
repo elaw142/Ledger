@@ -1,5 +1,5 @@
 from ledger.db import init_db
-from ledger.queries import accounts, review_count, transactions
+from ledger.queries import accounts, review_count, spending_by_category, transactions
 from ledger.sync import sync_akahu
 
 
@@ -91,3 +91,74 @@ def test_sync_uses_personal_finance_category_group(tmp_path):
 
     tx = [row for row in transactions(database, {}) if row["id"] == "tx_1"][0]
     assert tx["effective_category"] == "Food"
+
+
+def test_transfer_type_is_auto_categorized_and_excluded_from_spending(tmp_path):
+    database = str(tmp_path / "ledger.sqlite3")
+    init_db(database)
+    client = FakeAkahu()
+    client.transaction_pages = [
+        {
+            "_id": "tx_transfer",
+            "date": "2026-05-03",
+            "description": "Transfer to savings",
+            "amount": "-100.00",
+            "type": "TRANSFER",
+            "category": None,
+        },
+        {
+            "_id": "tx_shop",
+            "date": "2026-05-04",
+            "description": "Groceries",
+            "amount": "-50.00",
+            "type": "EFTPOS",
+            "category": {"_id": "c_1", "name": "Groceries"},
+        },
+    ]
+
+    sync_akahu(database, client, allowed_connections=["ANZ"], since_days=None)
+
+    rows = {row["id"]: row for row in transactions(database, {})}
+    spending = spending_by_category(database, start="2026-05-01", end="2026-05-31")
+    assert rows["tx_transfer"]["effective_category"] == "Transfers"
+    assert rows["tx_transfer"]["review_status"] == "auto"
+    assert spending == [{"category": "Groceries", "spend_cents": 5000, "count": 1}]
+
+
+def test_matching_internal_movements_are_auto_categorized_as_transfers(tmp_path):
+    class TransferPairAkahu(FakeAkahu):
+        def accounts(self):
+            account_1 = super().accounts()[0]
+            account_2 = dict(account_1, _id="acc_2", name="Savings")
+            return [account_1, account_2]
+
+        def transactions(self, account_id, since_days=None):
+            if account_id == "acc_1":
+                return [
+                    {
+                        "_id": "tx_out",
+                        "date": "2026-05-05",
+                        "description": "Payment to savings",
+                        "amount": "-250.00",
+                        "type": "PAYMENT",
+                        "category": None,
+                    }
+                ]
+            return [
+                {
+                    "_id": "tx_in",
+                    "date": "2026-05-06",
+                    "description": "Transfer from everyday",
+                    "amount": "250.00",
+                    "type": "DIRECT CREDIT",
+                    "category": None,
+                }
+            ]
+
+    database = str(tmp_path / "ledger.sqlite3")
+    init_db(database)
+    sync_akahu(database, TransferPairAkahu(), allowed_connections=["ANZ"], since_days=None)
+
+    rows = {row["id"]: row for row in transactions(database, {})}
+    assert rows["tx_out"]["effective_category"] == "Transfers"
+    assert rows["tx_in"]["effective_category"] == "Transfers"

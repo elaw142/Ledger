@@ -100,6 +100,7 @@ jobs:
             .venv/bin/pip install --upgrade pip
             .venv/bin/pip install -e .
             .venv/bin/ledger init-db
+            .venv/bin/ledger detect-transfers
             sudo cp deploy/ledger-*.service deploy/ledger-*.timer /etc/systemd/system/
             if command -v caddy >/dev/null 2>&1; then
               if [ -d /etc/caddy/conf.d ]; then

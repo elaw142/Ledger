@@ -6,12 +6,16 @@ from datetime import datetime, timezone
 from typing import Optional, Tuple
 
 from .akahu import AkahuClient
+from .categories import TRANSFER_CATEGORY
 from .db import connection, utc_now
 from .money import to_cents
 from .text import compact, key
 
 
 UNCERTAIN_CATEGORIES = {"", "unknown", "uncategorised", "uncategorized", "other"}
+TRANSFER_TYPES = {"TRANSFER"}
+TRANSFER_CATEGORY_KEYS = {"transfer", "transfers", "account transfer"}
+PAIR_TRANSFER_TYPES = {"TRANSFER", "STANDING ORDER", "PAYMENT", "DIRECT CREDIT", "DEBIT", "CREDIT"}
 
 
 @dataclass
@@ -124,6 +128,14 @@ def _is_useful_category(category_name: Optional[str]) -> bool:
     return key(category_name) not in UNCERTAIN_CATEGORIES
 
 
+def _is_transfer_transaction(transaction: dict, category_name: Optional[str]) -> bool:
+    category_key = key(category_name)
+    tx_type = compact(transaction.get("type")).upper()
+    if tx_type in TRANSFER_TYPES:
+        return True
+    return category_key in TRANSFER_CATEGORY_KEYS
+
+
 def _source_merchant_key(merchant_name: Optional[str], description: str) -> str:
     return key(merchant_name or description)
 
@@ -155,6 +167,12 @@ def _effective_fields(con, merchant_key: str, transaction_id: str, merchant_name
         effective_merchant = compact(tx_override["display_merchant"]) or effective_merchant
         effective_category = compact(tx_override["category_name"]) or effective_category
     return effective_merchant, effective_category
+
+
+def _apply_transfer_category(effective_category: Optional[str], transaction: dict, category_name: Optional[str]) -> Optional[str]:
+    if _is_transfer_transaction(transaction, category_name):
+        return TRANSFER_CATEGORY
+    return effective_category
 
 
 def _review_state(existing, category_name: Optional[str], effective_category: Optional[str], category_changed: bool) -> Tuple[str, Optional[str]]:
@@ -239,6 +257,7 @@ def _upsert_transaction(con, account: dict, transaction: dict) -> tuple[bool, bo
     effective_merchant, effective_category = _effective_fields(
         con, merchant_key, tx_id, merchant_name, category_name
     )
+    effective_category = _apply_transfer_category(effective_category, transaction, category_name)
     existing = con.execute(
         "SELECT akahu_category_name, review_status, review_reason FROM transactions WHERE id = ?",
         (tx_id,),
@@ -346,6 +365,7 @@ def sync_akahu(
                     transactions_seen += 1
                     new_transactions += 1 if created else 0
                     updated_transactions += 1 if updated else 0
+            updated_transactions += mark_transfers(con)
             con.execute(
                 """
                 UPDATE sync_runs
@@ -363,6 +383,101 @@ def sync_akahu(
                 (utc_now(), str(exc), run_id),
             )
         return SyncResult("error", accounts_seen, transactions_seen, new_transactions, updated_transactions, str(exc))
+
+
+def detect_transfers(database_path: str) -> int:
+    with connection(database_path) as con:
+        changed = mark_transfers(con)
+        return changed
+
+
+def mark_transfers(con) -> int:
+    now = utc_now()
+    direct = con.execute(
+        """
+        UPDATE transactions
+        SET effective_category = ?,
+            review_status = 'auto',
+            review_reason = NULL,
+            updated_at = ?
+        WHERE (
+                UPPER(COALESCE(type, '')) = 'TRANSFER'
+                OR LOWER(COALESCE(akahu_category_name, '')) IN ('transfer', 'transfers', 'account transfer')
+              )
+          AND review_status != 'reviewed'
+          AND (
+              COALESCE(effective_category, '') != ?
+              OR review_status != 'auto'
+              OR review_reason IS NOT NULL
+          )
+          AND NOT EXISTS (
+              SELECT 1 FROM transaction_overrides o WHERE o.transaction_id = transactions.id
+          )
+          AND NOT EXISTS (
+              SELECT 1 FROM merchant_overrides o WHERE o.merchant_key = transactions.merchant_key
+          )
+        """,
+        (TRANSFER_CATEGORY, now, TRANSFER_CATEGORY),
+    ).rowcount
+
+    rows = con.execute(
+        """
+        SELECT id, account_id, date, amount_cents, type
+        FROM transactions
+        WHERE pending = 0
+          AND amount_cents != 0
+          AND COALESCE(effective_category, '') != ?
+          AND review_status != 'reviewed'
+          AND UPPER(COALESCE(type, '')) IN ('TRANSFER', 'STANDING ORDER', 'PAYMENT', 'DIRECT CREDIT', 'DEBIT', 'CREDIT')
+          AND NOT EXISTS (
+              SELECT 1 FROM transaction_overrides o WHERE o.transaction_id = transactions.id
+          )
+          AND NOT EXISTS (
+              SELECT 1 FROM merchant_overrides o WHERE o.merchant_key = transactions.merchant_key
+          )
+        ORDER BY date, ABS(amount_cents), id
+        """,
+        (TRANSFER_CATEGORY,),
+    ).fetchall()
+    used = set()
+    paired = 0
+    for left in rows:
+        if left["id"] in used:
+            continue
+        left_date = datetime.fromisoformat(left["date"])
+        for right in rows:
+            if right["id"] in used or right["id"] == left["id"]:
+                continue
+            if right["account_id"] == left["account_id"]:
+                continue
+            if right["amount_cents"] != -left["amount_cents"]:
+                continue
+            right_date = datetime.fromisoformat(right["date"])
+            if abs((right_date - left_date).days) > 3:
+                continue
+            result = con.execute(
+                """
+                UPDATE transactions
+                SET effective_category = ?,
+                    review_status = 'auto',
+                    review_reason = NULL,
+                    updated_at = ?
+                WHERE id IN (?, ?)
+                  AND review_status != 'reviewed'
+                  AND NOT EXISTS (
+                      SELECT 1 FROM transaction_overrides o WHERE o.transaction_id = transactions.id
+                  )
+                  AND NOT EXISTS (
+                      SELECT 1 FROM merchant_overrides o WHERE o.merchant_key = transactions.merchant_key
+                  )
+                """,
+                (TRANSFER_CATEGORY, utc_now(), left["id"], right["id"]),
+            )
+            used.add(left["id"])
+            used.add(right["id"])
+            paired += result.rowcount
+            break
+    return direct + paired
 
 
 def apply_merchant_override(

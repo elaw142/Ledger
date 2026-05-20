@@ -1,0 +1,2 @@
+TRANSFER_CATEGORY = "Transfers"
+
