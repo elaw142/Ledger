@@ -122,7 +122,9 @@ def test_transfer_type_is_auto_categorized_and_excluded_from_spending(tmp_path):
     spending = spending_by_category(database, start="2026-05-01", end="2026-05-31")
     assert rows["tx_transfer"]["effective_category"] == "Transfers"
     assert rows["tx_transfer"]["review_status"] == "auto"
-    assert spending == [{"category": "Groceries", "spend_cents": 5000, "count": 1}]
+    assert spending[0]["category"] == "Groceries"
+    assert spending[0]["spend_cents"] == 5000
+    assert spending[0]["count"] == 1
 
 
 def test_matching_internal_movements_are_auto_categorized_as_transfers(tmp_path):

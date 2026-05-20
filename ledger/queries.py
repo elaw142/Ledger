@@ -3,8 +3,28 @@ from __future__ import annotations
 from datetime import date
 from typing import Optional
 
-from .categories import TRANSFER_CATEGORY
+from .categories import TRANSFER_CATEGORY, UNCATEGORIZED_CATEGORY, seed_categories
 from .db import connection, row_to_dict
+
+
+def _month_start() -> str:
+    return date.today().replace(day=1).isoformat()
+
+
+def _spending_clause(*, start: Optional[str], end: Optional[str]) -> tuple[str, list[str]]:
+    params: list[str] = [TRANSFER_CATEGORY]
+    clause = """
+        pending = 0
+        AND amount_cents < 0
+        AND COALESCE(effective_category, '') != ?
+    """
+    if start:
+        clause += " AND date >= ?"
+        params.append(start)
+    if end:
+        clause += " AND date <= ?"
+        params.append(end)
+    return clause, params
 
 
 def latest_sync(database_path: str) -> Optional[dict]:
@@ -39,39 +59,129 @@ def review_count(database_path: str) -> int:
         return int(row["count"])
 
 
-def categories(database_path: str) -> list[str]:
+def categories(database_path: str, *, start: Optional[str] = None, end: Optional[str] = None) -> list[dict]:
+    start = start or _month_start()
     with connection(database_path) as con:
-        rows = con.execute(
+        seed_categories(con)
+        return [
+            dict(row)
+            for row in con.execute(
             """
-            SELECT DISTINCT effective_category AS category
-            FROM transactions
-            WHERE effective_category IS NOT NULL AND effective_category != ''
-            ORDER BY effective_category
-            """
-        ).fetchall()
-        return [row["category"] for row in rows]
+                WITH usage AS (
+                    SELECT COALESCE(effective_category, ?) AS name,
+                           COUNT(*) AS transaction_count
+                    FROM transactions
+                    GROUP BY COALESCE(effective_category, ?)
+                ),
+                spend AS (
+                    SELECT COALESCE(effective_category, ?) AS name,
+                           SUM(ABS(amount_cents)) AS spend_cents
+                    FROM transactions
+                    WHERE pending = 0
+                      AND amount_cents < 0
+                      AND COALESCE(effective_category, ?) != ?
+                      AND date >= ?
+                      AND (? IS NULL OR date <= ?)
+                    GROUP BY COALESCE(effective_category, ?)
+                )
+                SELECT c.name, c.color, c.sort_order, c.is_system,
+                       COALESCE(usage.transaction_count, 0) AS transaction_count,
+                       COALESCE(spend.spend_cents, 0) AS spend_cents
+                FROM categories c
+                LEFT JOIN usage ON usage.name = c.name COLLATE NOCASE
+                LEFT JOIN spend ON spend.name = c.name COLLATE NOCASE
+                ORDER BY c.sort_order, c.name
+                """,
+                (
+                    UNCATEGORIZED_CATEGORY,
+                    UNCATEGORIZED_CATEGORY,
+                    UNCATEGORIZED_CATEGORY,
+                    TRANSFER_CATEGORY,
+                    TRANSFER_CATEGORY,
+                    start,
+                    end,
+                    end,
+                    UNCATEGORIZED_CATEGORY,
+                ),
+            )
+        ]
 
 
 def spending_by_category(database_path: str, *, start: Optional[str] = None, end: Optional[str] = None) -> list[dict]:
-    start = start or date.today().replace(day=1).isoformat()
-    params: list[str] = [start]
-    clause = "date >= ? AND amount_cents < 0 AND pending = 0 AND COALESCE(effective_category, '') != ?"
-    params.append(TRANSFER_CATEGORY)
-    if end:
-        clause += " AND date <= ?"
-        params.append(end)
+    start = start or _month_start()
+    clause, params = _spending_clause(start=start, end=end)
     with connection(database_path) as con:
         return [
             dict(row)
             for row in con.execute(
                 f"""
-                SELECT COALESCE(effective_category, 'Uncategorized') AS category,
+                SELECT COALESCE(t.effective_category, ?) AS category,
+                       COALESCE(c.color, '#006D77') AS color,
                        SUM(ABS(amount_cents)) AS spend_cents,
+                       COUNT(*) AS count
+                FROM transactions t
+                LEFT JOIN categories c ON c.name = COALESCE(t.effective_category, ?) COLLATE NOCASE
+                WHERE {clause}
+                GROUP BY COALESCE(t.effective_category, ?), COALESCE(c.color, '#006D77')
+                ORDER BY spend_cents DESC
+                """,
+                [UNCATEGORIZED_CATEGORY, UNCATEGORIZED_CATEGORY, *params, UNCATEGORIZED_CATEGORY],
+            )
+        ]
+
+
+def total_spend(database_path: str, *, start: Optional[str] = None, end: Optional[str] = None) -> int:
+    start = start or _month_start()
+    clause, params = _spending_clause(start=start, end=end)
+    with connection(database_path) as con:
+        row = con.execute(
+            f"SELECT COALESCE(SUM(ABS(amount_cents)), 0) AS spend_cents FROM transactions WHERE {clause}",
+            params,
+        ).fetchone()
+        return int(row["spend_cents"] or 0)
+
+
+def net_cash_flow(database_path: str, *, start: Optional[str] = None, end: Optional[str] = None) -> int:
+    start = start or _month_start()
+    params: list[str] = [TRANSFER_CATEGORY]
+    clause = """
+        pending = 0
+        AND COALESCE(effective_category, '') != ?
+    """
+    if start:
+        clause += " AND date >= ?"
+        params.append(start)
+    if end:
+        clause += " AND date <= ?"
+        params.append(end)
+    with connection(database_path) as con:
+        row = con.execute(
+            f"SELECT COALESCE(SUM(amount_cents), 0) AS cash_flow_cents FROM transactions WHERE {clause}",
+            params,
+        ).fetchone()
+        return int(row["cash_flow_cents"] or 0)
+
+
+def monthly_spending(database_path: str, *, start: Optional[str] = None, end: Optional[str] = None) -> list[dict]:
+    if not start:
+        today = date.today()
+        month_index = today.year * 12 + today.month - 1 - 11
+        start_year = month_index // 12
+        start_month = month_index % 12 + 1
+        start = date(start_year, start_month, 1).isoformat()
+    clause, params = _spending_clause(start=start, end=end)
+    with connection(database_path) as con:
+        return [
+            dict(row)
+            for row in con.execute(
+                f"""
+                SELECT substr(date, 1, 7) AS month,
+                       COALESCE(SUM(ABS(amount_cents)), 0) AS spend_cents,
                        COUNT(*) AS count
                 FROM transactions
                 WHERE {clause}
-                GROUP BY COALESCE(effective_category, 'Uncategorized')
-                ORDER BY spend_cents DESC
+                GROUP BY substr(date, 1, 7)
+                ORDER BY month
                 """,
                 params,
             )

@@ -4,7 +4,21 @@ const state = {
   transactions: [],
   summary: null,
   settings: null,
+  period: {
+    start: firstDayOfMonth(),
+    end: todayIso(),
+  },
 };
+
+function todayIso() {
+  const date = new Date();
+  return date.toISOString().slice(0, 10);
+}
+
+function firstDayOfMonth() {
+  const date = new Date();
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-01`;
+}
 
 function money(cents, currency = "NZD") {
   if (cents === null || cents === undefined) return "-";
@@ -19,6 +33,15 @@ function shortDate(value) {
   if (!value) return "-";
   return new Date(value).toLocaleDateString("en-NZ", {
     day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function monthLabel(value) {
+  if (!value) return "-";
+  const [year, month] = value.split("-").map(Number);
+  return new Date(year, month - 1, 1).toLocaleDateString("en-NZ", {
     month: "short",
     year: "numeric",
   });
@@ -54,12 +77,44 @@ function setActiveView() {
   });
 }
 
+function categoryByName(name) {
+  return state.categories.find((category) => category.name.toLowerCase() === String(name || "").toLowerCase());
+}
+
+function categoryColor(name) {
+  return categoryByName(name)?.color || "#006D77";
+}
+
+function categoryOptions(selected = "", options = {}) {
+  const selectedName = selected || "Uncategorized";
+  const exclude = String(options.exclude || "").toLowerCase();
+  const rows = state.categories.filter((category) => category.name.toLowerCase() !== exclude);
+  const hasSelected = rows.some((category) => category.name.toLowerCase() === selectedName.toLowerCase());
+  const optionRows = hasSelected || !selectedName
+    ? rows
+    : [{ name: selectedName, color: "#006D77" }, ...rows];
+  return optionRows
+    .map((category) => {
+      const isSelected = category.name.toLowerCase() === selectedName.toLowerCase();
+      return `<option value="${escapeAttr(category.name)}" ${isSelected ? "selected" : ""}>${escapeHtml(category.name)}</option>`;
+    })
+    .join("");
+}
+
 function renderStatus() {
   const latest = state.summary?.latest_sync;
   document.querySelector("#last-sync").textContent = latest?.finished_at
     ? `${latest.status} at ${shortDate(latest.finished_at)}`
     : "No sync yet";
   document.querySelector("#review-count").textContent = String(state.summary?.review_count || 0);
+  document.querySelector("#period-label").textContent = periodLabel();
+}
+
+function periodLabel() {
+  if (state.period.start === firstDayOfMonth() && state.period.end === todayIso()) {
+    return "This month";
+  }
+  return `${shortDate(state.period.start)} to ${shortDate(state.period.end)}`;
 }
 
 function renderSettings() {
@@ -72,6 +127,39 @@ function renderSettings() {
   ].join(" | ");
 }
 
+function renderKpis() {
+  const cards = [
+    {
+      label: "Total spent",
+      value: money(state.summary?.this_month_spend_cents || 0),
+      note: "This month, transfers excluded",
+    },
+    {
+      label: "Net cash flow",
+      value: money(state.summary?.selected_period_cash_flow_cents || 0),
+      note: periodLabel(),
+    },
+    {
+      label: "Largest category",
+      value: state.summary?.spending_by_category?.[0]
+        ? money(state.summary.spending_by_category[0].spend_cents || 0)
+        : money(0),
+      note: state.summary?.spending_by_category?.[0]?.category || "No spending yet",
+    },
+  ];
+  document.querySelector("#kpi-grid").innerHTML = cards
+    .map(
+      (card) => `
+        <article class="kpi-card">
+          <span class="label">${escapeHtml(card.label)}</span>
+          <strong>${escapeHtml(card.value)}</strong>
+          <p>${escapeHtml(card.note)}</p>
+        </article>
+      `,
+    )
+    .join("");
+}
+
 function renderAccounts() {
   const root = document.querySelector("#accounts");
   if (!state.accounts.length) {
@@ -82,9 +170,11 @@ function renderAccounts() {
     .map(
       (account) => `
         <article class="account-card">
-          <h3>${escapeHtml(account.name)}</h3>
+          <div>
+            <h3>${escapeHtml(account.name)}</h3>
+            <p class="meta">${escapeHtml(account.connection_name || "")} ${escapeHtml(account.formatted_account || "")}</p>
+          </div>
           <p class="balance">${money(account.balance_current_cents, account.currency)}</p>
-          <p class="meta">${escapeHtml(account.connection_name || "")} ${escapeHtml(account.formatted_account || "")}</p>
         </article>
       `,
     )
@@ -92,9 +182,7 @@ function renderAccounts() {
 }
 
 function renderCategorySpend() {
-  const html = categoryRows(state.summary?.spending_by_category || []);
-  document.querySelector("#category-spend").innerHTML = html;
-  document.querySelector("#categories-full").innerHTML = html;
+  document.querySelector("#category-spend").innerHTML = categoryRows(state.summary?.spending_by_category || []);
 }
 
 function categoryRows(rows) {
@@ -105,9 +193,10 @@ function categoryRows(rows) {
   return rows
     .map((row) => {
       const width = Math.max(4, Math.round((Number(row.spend_cents || 0) / max) * 100));
+      const color = row.color || categoryColor(row.category);
       return `
-        <div class="metric-row">
-          <span class="metric-name">${escapeHtml(row.category)}</span>
+        <div class="metric-row" style="--category-color: ${escapeAttr(color)}">
+          <span class="metric-name"><span class="swatch"></span>${escapeHtml(row.category)}</span>
           <span class="metric-value">${money(row.spend_cents)}</span>
           <span class="metric-bar" aria-hidden="true"><span style="width: ${width}%"></span></span>
         </div>
@@ -116,15 +205,95 @@ function categoryRows(rows) {
     .join("");
 }
 
+function renderMonthlyChart() {
+  const rows = state.summary?.monthly_spending || [];
+  const root = document.querySelector("#monthly-chart");
+  if (!rows.length) {
+    root.innerHTML = `<div class="empty">No monthly spending history yet.</div>`;
+    return;
+  }
+  const max = Math.max(...rows.map((row) => Number(row.spend_cents || 0)), 1);
+  root.innerHTML = rows
+    .map((row) => {
+      const width = Math.max(4, Math.round((Number(row.spend_cents || 0) / max) * 100));
+      return `
+        <div class="month-row">
+          <span class="month-label">${escapeHtml(monthLabel(row.month))}</span>
+          <span class="month-track" aria-label="${escapeAttr(`${monthLabel(row.month)} spending ${money(row.spend_cents)}`)}">
+            <span style="width: ${width}%"></span>
+          </span>
+          <strong>${money(row.spend_cents)}</strong>
+        </div>
+      `;
+    })
+    .join("");
+}
+
+function renderCategoryList() {
+  const root = document.querySelector("#category-list");
+  if (!state.categories.length) {
+    root.innerHTML = `<div class="empty">No categories yet.</div>`;
+    return;
+  }
+  root.innerHTML = state.categories
+    .map((category) => {
+      const replacement = category.transaction_count
+        ? `
+          <label class="replacement-field">
+            Reassign to
+            <select name="replacement">
+              <option value="">Choose replacement</option>
+              ${categoryOptions("", { exclude: category.name })}
+            </select>
+          </label>
+        `
+        : "";
+      return `
+        <article class="category-card ${category.is_system ? "system" : ""}" style="--category-color: ${escapeAttr(category.color)}">
+          <form class="category-edit" data-category="${escapeAttr(category.name)}" data-count="${Number(category.transaction_count || 0)}">
+            <span class="swatch large"></span>
+            <label>
+              Name
+              <input name="name" maxlength="64" value="${escapeAttr(category.name)}" ${category.is_system ? "disabled" : ""}>
+            </label>
+            <label>
+              Color
+              <input name="color" type="color" value="${escapeAttr(category.color)}">
+            </label>
+            <div class="category-stats">
+              <strong>${money(category.spend_cents || 0)}</strong>
+              <span>${Number(category.transaction_count || 0)} transaction${Number(category.transaction_count || 0) === 1 ? "" : "s"}</span>
+            </div>
+            ${category.is_system ? `<span class="pill">System</span>` : replacement}
+            <div class="category-actions">
+              <button type="submit" class="ghost">Save</button>
+              ${category.is_system ? "" : `<button type="button" class="danger delete-category">Delete</button>`}
+            </div>
+          </form>
+        </article>
+      `;
+    })
+    .join("");
+}
+
 function fillFilters() {
   const accountSelect = document.querySelector("#filter-account");
   const categorySelect = document.querySelector("#filter-category");
+  const currentAccount = accountSelect.value;
+  const currentCategory = categorySelect.value;
   accountSelect.innerHTML = `<option value="">All accounts</option>` + state.accounts
     .map((account) => `<option value="${escapeAttr(account.id)}">${escapeHtml(account.name)}</option>`)
     .join("");
   categorySelect.innerHTML = `<option value="">All categories</option>` + state.categories
-    .map((category) => `<option value="${escapeAttr(category)}">${escapeHtml(category)}</option>`)
+    .map((category) => `<option value="${escapeAttr(category.name)}">${escapeHtml(category.name)}</option>`)
     .join("");
+  accountSelect.value = currentAccount;
+  categorySelect.value = currentCategory;
+}
+
+function syncPeriodInputs() {
+  document.querySelector("#period-start").value = state.period.start;
+  document.querySelector("#period-end").value = state.period.end;
 }
 
 function transactionQuery(reviewOnly = false) {
@@ -163,14 +332,25 @@ function renderTransactions() {
       return `
         <tr>
           <td>${shortDate(tx.date)}</td>
-          <td>${escapeHtml(tx.effective_merchant)}</td>
-          <td>${escapeHtml(tx.effective_category || "Uncategorized")}</td>
-          <td>${escapeHtml(tx.account_name || "")}</td>
+          <td>
+            <strong>${escapeHtml(tx.effective_merchant)}</strong>
+            <span class="table-note">${escapeHtml(tx.description || "")} - ${escapeHtml(tx.account_name || "")}</span>
+          </td>
+          <td>${categoryChip(tx.effective_category || "Uncategorized")}</td>
           <td class="money ${amountClass}">${money(tx.amount_cents, tx.currency)}</td>
+          <td><span class="pill muted">${escapeHtml(tx.review_status || "auto")}</span></td>
         </tr>
       `;
     })
     .join("");
+}
+
+function categoryChip(name) {
+  return `
+    <span class="category-chip" style="--category-color: ${escapeAttr(categoryColor(name))}">
+      <span class="swatch"></span>${escapeHtml(name)}
+    </span>
+  `;
 }
 
 function renderReview() {
@@ -188,10 +368,12 @@ function reviewMarkup(items, compact) {
       (tx) => `
         <article class="review-item" data-transaction="${escapeAttr(tx.id)}">
           <div class="review-title">
-            <strong>${escapeHtml(tx.effective_merchant)}</strong>
+            <div>
+              <strong>${escapeHtml(tx.effective_merchant)}</strong>
+              <p class="meta">${shortDate(tx.date)} - ${escapeHtml(tx.description)} - ${money(tx.amount_cents, tx.currency)}</p>
+            </div>
             <span class="pill">${escapeHtml(tx.review_reason || "review")}</span>
           </div>
-          <p class="meta">${shortDate(tx.date)} - ${escapeHtml(tx.description)} - ${money(tx.amount_cents, tx.currency)}</p>
           ${compact ? "" : reviewForm(tx)}
         </article>
       `,
@@ -202,8 +384,16 @@ function reviewMarkup(items, compact) {
 function reviewForm(tx) {
   return `
     <form class="review-form" data-transaction="${escapeAttr(tx.id)}" data-merchant-key="${escapeAttr(tx.merchant_key)}">
-      <input name="display_merchant" value="${escapeAttr(tx.effective_merchant)}" placeholder="Merchant">
-      <input name="category_name" value="${escapeAttr(tx.effective_category || "")}" placeholder="Category">
+      <label>
+        Merchant
+        <input name="display_merchant" value="${escapeAttr(tx.effective_merchant)}" required>
+      </label>
+      <label>
+        Category
+        <select name="category_name" required>
+          ${categoryOptions(tx.effective_category || "Uncategorized")}
+        </select>
+      </label>
       <button type="submit">Approve</button>
     </form>
   `;
@@ -224,14 +414,18 @@ async function approveReview(event) {
     body: JSON.stringify(payload),
   });
   await refresh();
-  await loadTransactions(true);
+  await loadTransactions(activeView() === "review");
 }
 
 async function refresh() {
+  const params = new URLSearchParams();
+  if (state.period.start) params.set("start", state.period.start);
+  if (state.period.end) params.set("end", state.period.end);
+  const periodQuery = params.toString();
   const [summary, accountData, categoryData, settingsData] = await Promise.all([
-    api("/api/summary"),
+    api(`/api/summary${periodQuery ? `?${periodQuery}` : ""}`),
     api("/api/accounts"),
-    api("/api/categories"),
+    api(`/api/categories${periodQuery ? `?${periodQuery}` : ""}`),
     api("/api/settings"),
   ]);
   state.summary = summary;
@@ -240,9 +434,13 @@ async function refresh() {
   state.settings = settingsData;
   renderStatus();
   renderSettings();
+  renderKpis();
   renderAccounts();
   renderCategorySpend();
+  renderMonthlyChart();
+  renderCategoryList();
   fillFilters();
+  syncPeriodInputs();
 }
 
 async function syncNow(backfill = false) {
@@ -287,6 +485,65 @@ async function saveSettings(event) {
   settingsOutput({ status: "saved", settings: state.settings });
 }
 
+async function createCategory(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  await api("/api/categories", {
+    method: "POST",
+    body: JSON.stringify({
+      name: form.elements.name.value,
+      color: form.elements.color.value,
+    }),
+  });
+  form.reset();
+  form.elements.color.value = "#006D77";
+  await refresh();
+}
+
+async function saveCategory(event) {
+  const form = event.target.closest(".category-edit");
+  if (!form) return;
+  event.preventDefault();
+  await api(`/api/categories/${encodeURIComponent(form.dataset.category)}`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      name: form.elements.name.value,
+      color: form.elements.color.value,
+    }),
+  });
+  await refresh();
+  await loadTransactions(activeView() === "review");
+}
+
+async function deleteCategory(event) {
+  const button = event.target.closest(".delete-category");
+  if (!button) return;
+  const form = button.closest(".category-edit");
+  const payload = {};
+  if (Number(form.dataset.count || 0) > 0) {
+    const replacement = form.elements.replacement.value;
+    if (!replacement) {
+      settingsOutput({ error: "Choose a replacement category before deleting." });
+      form.elements.replacement.focus();
+      return;
+    }
+    payload.replacement_category = replacement;
+  }
+  await api(`/api/categories/${encodeURIComponent(form.dataset.category)}`, {
+    method: "DELETE",
+    body: JSON.stringify(payload),
+  });
+  await refresh();
+  await loadTransactions(activeView() === "review");
+}
+
+async function applyPeriod(event) {
+  event.preventDefault();
+  state.period.start = document.querySelector("#period-start").value || firstDayOfMonth();
+  state.period.end = document.querySelector("#period-end").value || todayIso();
+  await refresh();
+}
+
 function settingsOutput(value) {
   const node = document.querySelector("#settings-output");
   if (node) node.textContent = JSON.stringify(value, null, 2);
@@ -307,13 +564,18 @@ function escapeAttr(value) {
 
 async function boot() {
   setActiveView();
+  syncPeriodInputs();
   await refresh();
   await loadTransactions(activeView() === "review");
   document.querySelector("#apply-filters")?.addEventListener("click", () => loadTransactions(false));
+  document.querySelector("#period-form")?.addEventListener("submit", applyPeriod);
   document.querySelector("#sync-now")?.addEventListener("click", () => syncNow(false));
   document.querySelector("#sync-backfill")?.addEventListener("click", () => syncNow(true));
   document.querySelector("#review-list")?.addEventListener("submit", approveReview);
   document.querySelector("#settings-form")?.addEventListener("submit", saveSettings);
+  document.querySelector("#category-form")?.addEventListener("submit", createCategory);
+  document.querySelector("#category-list")?.addEventListener("submit", saveCategory);
+  document.querySelector("#category-list")?.addEventListener("click", deleteCategory);
   document.querySelector("#test-discord")?.addEventListener("click", async () => {
     settingsOutput(await api("/api/notifications/test", { method: "POST", body: "{}" }));
   });

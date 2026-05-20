@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from typing import Optional, Tuple
 
 from .akahu import AkahuClient
-from .categories import TRANSFER_CATEGORY
+from .categories import TRANSFER_CATEGORY, ensure_category
 from .db import connection, utc_now
 from .money import to_cents
 from .text import compact, key
@@ -258,6 +258,10 @@ def _upsert_transaction(con, account: dict, transaction: dict) -> tuple[bool, bo
         con, merchant_key, tx_id, merchant_name, category_name
     )
     effective_category = _apply_transfer_category(effective_category, transaction, category_name)
+    if _is_useful_category(category_name):
+        ensure_category(con, category_name)
+    if effective_category:
+        ensure_category(con, effective_category, is_system=effective_category == TRANSFER_CATEGORY)
     existing = con.execute(
         "SELECT akahu_category_name, review_status, review_reason FROM transactions WHERE id = ?",
         (tx_id,),

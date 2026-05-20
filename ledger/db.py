@@ -7,6 +7,8 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 from typing import Optional
 
+from .categories import seed_categories
+
 
 def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
@@ -66,6 +68,18 @@ def init_db(database_path: str) -> None:
 
             CREATE INDEX IF NOT EXISTS idx_balance_snapshots_account_time
             ON balance_snapshots(account_id, captured_at);
+
+            CREATE TABLE IF NOT EXISTS categories (
+                name TEXT PRIMARY KEY COLLATE NOCASE,
+                color TEXT NOT NULL,
+                sort_order INTEGER NOT NULL DEFAULT 1000,
+                is_system INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_categories_order
+            ON categories(sort_order, name);
 
             CREATE TABLE IF NOT EXISTS merchant_overrides (
                 merchant_key TEXT PRIMARY KEY,
@@ -144,6 +158,7 @@ def init_db(database_path: str) -> None:
             );
             """
         )
+        seed_categories(con)
 
 
 def row_to_dict(row: Optional[sqlite3.Row]) -> Optional[dict]:

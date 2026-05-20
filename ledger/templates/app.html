@@ -20,21 +20,25 @@
           <a href="/review" data-view="review">Review</a>
           <a href="/settings" data-view="settings">Settings</a>
         </nav>
-        <form action="/logout" method="post">
-          <button class="ghost full" type="submit">Log out</button>
-        </form>
+        <div class="sidebar-foot">
+          <span class="label">Environment</span>
+          <strong>{{ public_url }}</strong>
+          <form action="/logout" method="post">
+            <button class="ghost full" type="submit">Log out</button>
+          </form>
+        </div>
       </aside>
 
       <main class="layout">
         <header class="workspace-head">
           <div>
             <p class="eyebrow">Private finance workspace</p>
-            <h2>Accounts and spending</h2>
+            <h2>Spending, reconciled</h2>
           </div>
           <button id="sync-now" type="button">Sync now</button>
         </header>
 
-        <section class="status-strip">
+        <section class="status-strip" aria-label="Sync status">
           <div>
             <span class="label">Last sync</span>
             <strong id="last-sync">No sync yet</strong>
@@ -44,125 +48,182 @@
             <strong id="review-count">0</strong>
           </div>
           <div>
-            <span class="label">Environment</span>
-            <strong>{{ public_url }}</strong>
+            <span class="label">Dashboard period</span>
+            <strong id="period-label">This month</strong>
           </div>
         </section>
 
-      <section class="view" id="view-dashboard">
-        <div class="section-head">
-          <div>
-            <p class="eyebrow">Balances</p>
-            <h2>Accounts</h2>
+        <section class="view" id="view-dashboard">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Overview</p>
+              <h2>Spending dashboard</h2>
+            </div>
+            <form id="period-form" class="period-form">
+              <label>
+                Start
+                <input id="period-start" type="date">
+              </label>
+              <label>
+                End
+                <input id="period-end" type="date">
+              </label>
+              <button type="submit">Apply</button>
+            </form>
           </div>
-        </div>
-        <div class="account-grid" id="accounts"></div>
-        <div class="two-column">
-          <section>
-            <div class="section-head compact">
+
+          <div class="kpi-grid" id="kpi-grid"></div>
+
+          <div class="analytics-grid">
+            <section class="panel panel-wide">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">History</p>
+                  <h3>Month by month</h3>
+                </div>
+              </div>
+              <div id="monthly-chart" class="monthly-chart"></div>
+            </section>
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">Current period</p>
+                  <h3>Spending by category</h3>
+                </div>
+              </div>
+              <div id="category-spend" class="metric-list"></div>
+            </section>
+          </div>
+
+          <section class="panel">
+            <div class="panel-head">
               <div>
-                <p class="eyebrow">This month</p>
-                <h2>Spending by category</h2>
+                <p class="eyebrow">Balances</p>
+                <h3>Accounts</h3>
               </div>
             </div>
-            <div id="category-spend" class="metric-list"></div>
+            <div class="account-grid" id="accounts"></div>
           </section>
-          <section>
-            <div class="section-head compact">
+
+          <section class="panel">
+            <div class="panel-head">
               <div>
                 <p class="eyebrow">Needs review</p>
-                <h2>Queue</h2>
+                <h3>Merchant queue</h3>
               </div>
+              <a class="text-link" href="/review">Open review</a>
             </div>
             <div id="review-preview" class="review-stack"></div>
           </section>
-        </div>
-      </section>
+        </section>
 
-      <section class="view" id="view-transactions">
-        <div class="section-head">
-          <div>
-            <p class="eyebrow">Ledger</p>
-            <h2>Transactions</h2>
+        <section class="view" id="view-transactions">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Ledger</p>
+              <h2>Transactions</h2>
+            </div>
           </div>
-        </div>
-        <div class="filters">
-          <select id="filter-account">
-            <option value="">All accounts</option>
-          </select>
-          <select id="filter-category">
-            <option value="">All categories</option>
-          </select>
-          <input id="filter-start" type="date">
-          <input id="filter-end" type="date">
-          <button id="apply-filters" type="button">Apply</button>
-        </div>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Merchant</th>
-                <th>Category</th>
-                <th>Account</th>
-                <th class="money">Amount</th>
-              </tr>
-            </thead>
-            <tbody id="transactions-table"></tbody>
-          </table>
-        </div>
-      </section>
+          <div class="filters">
+            <label>
+              Account
+              <select id="filter-account">
+                <option value="">All accounts</option>
+              </select>
+            </label>
+            <label>
+              Category
+              <select id="filter-category">
+                <option value="">All categories</option>
+              </select>
+            </label>
+            <label>
+              Start
+              <input id="filter-start" type="date">
+            </label>
+            <label>
+              End
+              <input id="filter-end" type="date">
+            </label>
+            <button id="apply-filters" type="button">Apply</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Description</th>
+                  <th>Category</th>
+                  <th class="money">Amount</th>
+                  <th>Source</th>
+                </tr>
+              </thead>
+              <tbody id="transactions-table"></tbody>
+            </table>
+          </div>
+        </section>
 
-      <section class="view" id="view-categories">
-        <div class="section-head">
-          <div>
-            <p class="eyebrow">Categories</p>
-            <h2>Spending</h2>
+        <section class="view" id="view-categories">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">System of record</p>
+              <h2>Categories</h2>
+            </div>
           </div>
-        </div>
-        <div id="categories-full" class="metric-list"></div>
-      </section>
+          <form id="category-form" class="category-create">
+            <label>
+              Category name
+              <input name="name" maxlength="64" required placeholder="e.g. Home repairs">
+            </label>
+            <label>
+              Color
+              <input name="color" type="color" value="#006D77">
+            </label>
+            <button type="submit">Create category</button>
+          </form>
+          <div id="category-list" class="category-list"></div>
+        </section>
 
-      <section class="view" id="view-review">
-        <div class="section-head">
-          <div>
-            <p class="eyebrow">Approve</p>
-            <h2>Merchant overrides</h2>
+        <section class="view" id="view-review">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Approve</p>
+              <h2>Merchant overrides</h2>
+            </div>
           </div>
-        </div>
-        <div id="review-list" class="review-stack"></div>
-      </section>
+          <div id="review-list" class="review-stack"></div>
+        </section>
 
-      <section class="view" id="view-settings">
-        <div class="section-head">
-          <div>
-            <p class="eyebrow">Settings</p>
-            <h2>Sync and notifications</h2>
+        <section class="view" id="view-settings">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Settings</p>
+              <h2>Sync and notifications</h2>
+            </div>
           </div>
-        </div>
-        <div class="settings-actions">
-          <button id="sync-backfill" type="button">Backfill history</button>
-          <button id="test-discord" type="button">Test Discord</button>
-          <button id="notify-now" type="button">Send review reminder</button>
-        </div>
-        <form id="settings-form" class="settings-form">
-          <label>
-            Akahu App ID token
-            <input name="AKAHU_APP_TOKEN" type="password" autocomplete="off" placeholder="Leave blank to keep existing">
-          </label>
-          <label>
-            Akahu User Access token
-            <input name="AKAHU_USER_TOKEN" type="password" autocomplete="off" placeholder="Leave blank to keep existing">
-          </label>
-          <label>
-            Discord webhook URL
-            <input name="DISCORD_WEBHOOK_URL" type="password" autocomplete="off" placeholder="Leave blank to keep existing">
-          </label>
-          <button type="submit">Save settings</button>
-        </form>
-        <div id="settings-status" class="settings-status"></div>
-        <pre id="settings-output"></pre>
-      </section>
+          <div class="settings-actions">
+            <button id="sync-backfill" type="button">Backfill history</button>
+            <button id="test-discord" type="button">Test Discord</button>
+            <button id="notify-now" type="button">Send review reminder</button>
+          </div>
+          <form id="settings-form" class="settings-form">
+            <label>
+              Akahu App ID token
+              <input name="AKAHU_APP_TOKEN" type="password" autocomplete="off" placeholder="Leave blank to keep existing">
+            </label>
+            <label>
+              Akahu User Access token
+              <input name="AKAHU_USER_TOKEN" type="password" autocomplete="off" placeholder="Leave blank to keep existing">
+            </label>
+            <label>
+              Discord webhook URL
+              <input name="DISCORD_WEBHOOK_URL" type="password" autocomplete="off" placeholder="Leave blank to keep existing">
+            </label>
+            <button type="submit">Save settings</button>
+          </form>
+          <div id="settings-status" class="settings-status"></div>
+          <pre id="settings-output"></pre>
+        </section>
       </main>
     </div>
 

@@ -11,7 +11,8 @@ balances, merchants, categories, and settled transactions.
 - ANZ official-open-banking safety check
 - Integer-cent money storage
 - Account balances and balance snapshots
-- Category spending views and transaction filters
+- Custom category management with protected system categories
+- Category spending views, monthly history, and transaction filters
 - Merchant/category overrides remembered locally
 - Review queue for uncategorized or changed transactions
 - Weekly Discord reminders when review is needed
@@ -69,3 +70,6 @@ Ledger only syncs configured connection names, defaulting to `ANZ`, and refuses 
 accounts unless Akahu reports `connection.connection_type` as `official`.
 
 Pending transactions are not included in settled spending totals in v1.
+
+`Transfers` is a protected category and is excluded from spending totals along
+with positive income.
