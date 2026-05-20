@@ -101,15 +101,18 @@ function categoryRows(rows) {
   if (!rows.length) {
     return `<div class="empty">No spending data for this period.</div>`;
   }
+  const max = Math.max(...rows.map((row) => Number(row.spend_cents || 0)), 1);
   return rows
-    .map(
-      (row) => `
+    .map((row) => {
+      const width = Math.max(4, Math.round((Number(row.spend_cents || 0) / max) * 100));
+      return `
         <div class="metric-row">
           <span class="metric-name">${escapeHtml(row.category)}</span>
           <span class="metric-value">${money(row.spend_cents)}</span>
+          <span class="metric-bar" aria-hidden="true"><span style="width: ${width}%"></span></span>
         </div>
-      `,
-    )
+      `;
+    })
     .join("");
 }
 

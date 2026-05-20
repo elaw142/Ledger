@@ -7,38 +7,47 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
   </head>
   <body>
-    <header class="topbar">
-      <div>
-        <p class="eyebrow">Ledger v2</p>
-        <h1>Accounts and spending</h1>
-      </div>
-      <nav class="nav-tabs" aria-label="Primary">
-        <a href="/" data-view="dashboard">Dashboard</a>
-        <a href="/transactions" data-view="transactions">Transactions</a>
-        <a href="/categories" data-view="categories">Categories</a>
-        <a href="/review" data-view="review">Review</a>
-        <a href="/settings" data-view="settings">Settings</a>
-      </nav>
-      <form action="/logout" method="post">
-        <button class="ghost" type="submit">Log out</button>
-      </form>
-    </header>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand-block">
+          <p class="eyebrow">Ledger v2</p>
+          <h1>Ledger</h1>
+        </div>
+        <nav class="nav-tabs" aria-label="Primary">
+          <a href="/" data-view="dashboard">Dashboard</a>
+          <a href="/transactions" data-view="transactions">Transactions</a>
+          <a href="/categories" data-view="categories">Categories</a>
+          <a href="/review" data-view="review">Review</a>
+          <a href="/settings" data-view="settings">Settings</a>
+        </nav>
+        <form action="/logout" method="post">
+          <button class="ghost full" type="submit">Log out</button>
+        </form>
+      </aside>
 
-    <main class="layout">
-      <section class="status-strip">
-        <div>
-          <span class="label">Last sync</span>
-          <strong id="last-sync">No sync yet</strong>
-        </div>
-        <div>
-          <span class="label">Review</span>
-          <strong id="review-count">0</strong>
-        </div>
-        <div>
-          <span class="label">Public URL</span>
-          <strong>{{ public_url }}</strong>
-        </div>
-      </section>
+      <main class="layout">
+        <header class="workspace-head">
+          <div>
+            <p class="eyebrow">Private finance workspace</p>
+            <h2>Accounts and spending</h2>
+          </div>
+          <button id="sync-now" type="button">Sync now</button>
+        </header>
+
+        <section class="status-strip">
+          <div>
+            <span class="label">Last sync</span>
+            <strong id="last-sync">No sync yet</strong>
+          </div>
+          <div>
+            <span class="label">Review queue</span>
+            <strong id="review-count">0</strong>
+          </div>
+          <div>
+            <span class="label">Environment</span>
+            <strong>{{ public_url }}</strong>
+          </div>
+        </section>
 
       <section class="view" id="view-dashboard">
         <div class="section-head">
@@ -46,7 +55,6 @@
             <p class="eyebrow">Balances</p>
             <h2>Accounts</h2>
           </div>
-          <button id="sync-now" type="button">Sync now</button>
         </div>
         <div class="account-grid" id="accounts"></div>
         <div class="two-column">
@@ -155,7 +163,8 @@
         <div id="settings-status" class="settings-status"></div>
         <pre id="settings-output"></pre>
       </section>
-    </main>
+      </main>
+    </div>
 
     <script src="{{ url_for('static', filename='app.js') }}"></script>
   </body>
