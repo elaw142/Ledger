@@ -137,6 +137,22 @@
           <button id="test-discord" type="button">Test Discord</button>
           <button id="notify-now" type="button">Send review reminder</button>
         </div>
+        <form id="settings-form" class="settings-form">
+          <label>
+            Akahu App ID token
+            <input name="AKAHU_APP_TOKEN" type="password" autocomplete="off" placeholder="Leave blank to keep existing">
+          </label>
+          <label>
+            Akahu User Access token
+            <input name="AKAHU_USER_TOKEN" type="password" autocomplete="off" placeholder="Leave blank to keep existing">
+          </label>
+          <label>
+            Discord webhook URL
+            <input name="DISCORD_WEBHOOK_URL" type="password" autocomplete="off" placeholder="Leave blank to keep existing">
+          </label>
+          <button type="submit">Save settings</button>
+        </form>
+        <div id="settings-status" class="settings-status"></div>
         <pre id="settings-output"></pre>
       </section>
     </main>
@@ -144,4 +160,3 @@
     <script src="{{ url_for('static', filename='app.js') }}"></script>
   </body>
 </html>
-

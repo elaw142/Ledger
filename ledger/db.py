@@ -136,6 +136,12 @@ def init_db(database_path: str) -> None:
                 payload TEXT NOT NULL,
                 response_body TEXT
             );
+
+            CREATE TABLE IF NOT EXISTS app_settings (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
             """
         )
 

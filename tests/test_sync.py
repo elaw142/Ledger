@@ -32,6 +32,7 @@ class FakeAkahu:
                 "name": "Everyday",
                 "currency": "NZD",
                 "balance": {"current": "57.70", "available": "57.70"},
+                "attributes": ["TRANSACTIONS"],
                 "connection": {"name": "ANZ", "connection_type": "official"},
             }
         ]
@@ -58,3 +59,35 @@ def test_sync_backfill_is_idempotent(tmp_path):
     assert len(transactions(database, {})) == 2
     assert review_count(database) == 1
 
+
+def test_sync_skips_accounts_without_transaction_attribute(tmp_path):
+    class NoTransactionAkahu(FakeAkahu):
+        def accounts(self):
+            account = super().accounts()[0]
+            account["attributes"] = ["PAYMENT_TO"]
+            return [account]
+
+        def transactions(self, account_id, since_days=None):
+            raise AssertionError("transactions should not be requested")
+
+    database = str(tmp_path / "ledger.sqlite3")
+    init_db(database)
+    result = sync_akahu(database, NoTransactionAkahu(), allowed_connections=["ANZ"], since_days=None)
+
+    assert result.status == "success"
+    assert result.accounts_seen == 1
+    assert result.transactions_seen == 0
+
+
+def test_sync_uses_personal_finance_category_group(tmp_path):
+    database = str(tmp_path / "ledger.sqlite3")
+    init_db(database)
+    client = FakeAkahu()
+    client.transaction_pages[0]["category"]["groups"] = {
+        "personal_finance": {"_id": "group_food", "name": "Food"}
+    }
+
+    sync_akahu(database, client, allowed_connections=["ANZ"], since_days=None)
+
+    tx = [row for row in transactions(database, {}) if row["id"] == "tx_1"][0]
+    assert tx["effective_category"] == "Food"

@@ -10,12 +10,17 @@ from .akahu import AkahuClient
 from .config import Config
 from .db import init_db
 from .notify import notify_review_needed
+from .settings import get_setting
 from .sync import sync_akahu
 from .web import create_app
 
 
 def _client(config: Config) -> AkahuClient:
-    return AkahuClient(config.AKAHU_BASE_URL, config.AKAHU_APP_TOKEN, config.AKAHU_USER_TOKEN)
+    return AkahuClient(
+        config.AKAHU_BASE_URL,
+        config.AKAHU_APP_TOKEN or get_setting(config.DATABASE, "AKAHU_APP_TOKEN", ""),
+        config.AKAHU_USER_TOKEN or get_setting(config.DATABASE, "AKAHU_USER_TOKEN", ""),
+    )
 
 
 def main(argv: Optional[list[str]] = None) -> int:
@@ -62,7 +67,8 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     if args.command == "notify-review-needed":
         init_db(config.DATABASE)
-        result = notify_review_needed(config.DATABASE, config.DISCORD_WEBHOOK_URL, config.PUBLIC_URL)
+        webhook = config.DISCORD_WEBHOOK_URL or get_setting(config.DATABASE, "DISCORD_WEBHOOK_URL", "")
+        result = notify_review_needed(config.DATABASE, webhook, config.PUBLIC_URL)
         print(result)
         return 0 if result["status"] in {"sent", "skipped"} else 1
 

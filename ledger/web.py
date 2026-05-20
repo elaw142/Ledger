@@ -11,6 +11,7 @@ from .config import Config
 from .db import init_db
 from .notify import notify_review_needed, send_discord
 from .queries import accounts, categories, latest_sync, review_count, spending_by_category, transactions
+from .settings import configured_settings, get_runtime_setting, set_setting
 from .sync import apply_merchant_override, apply_transaction_override, sync_akahu
 
 
@@ -56,8 +57,8 @@ def login_required(view):
 def _akahu_client() -> AkahuClient:
     return AkahuClient(
         current_app.config["AKAHU_BASE_URL"],
-        current_app.config["AKAHU_APP_TOKEN"],
-        current_app.config["AKAHU_USER_TOKEN"],
+        get_runtime_setting(_db_path(), current_app.config, "AKAHU_APP_TOKEN"),
+        get_runtime_setting(_db_path(), current_app.config, "AKAHU_USER_TOKEN"),
     )
 
 
@@ -133,6 +134,10 @@ def register_routes(app: Flask) -> None:
     @login_required
     def api_sync():
         body = request.get_json(silent=True) or {}
+        if not get_runtime_setting(_db_path(), current_app.config, "AKAHU_APP_TOKEN"):
+            return jsonify({"error": "Akahu App ID token is not configured"}), 400
+        if not get_runtime_setting(_db_path(), current_app.config, "AKAHU_USER_TOKEN"):
+            return jsonify({"error": "Akahu User Access token is not configured"}), 400
         backfill = bool(body.get("backfill"))
         since_days = None if backfill else current_app.config["SYNC_LOOKBACK_DAYS"]
         result = sync_akahu(
@@ -148,6 +153,20 @@ def register_routes(app: Flask) -> None:
     @login_required
     def api_sync_status():
         return jsonify({"latest_sync": latest_sync(_db_path())})
+
+    @app.get("/api/settings")
+    @login_required
+    def api_settings():
+        return jsonify(configured_settings(_db_path(), current_app.config))
+
+    @app.post("/api/settings")
+    @login_required
+    def api_settings_post():
+        body = request.get_json(force=True)
+        for key in ("AKAHU_APP_TOKEN", "AKAHU_USER_TOKEN", "DISCORD_WEBHOOK_URL"):
+            if key in body:
+                set_setting(_db_path(), key, body.get(key))
+        return jsonify(configured_settings(_db_path(), current_app.config))
 
     @app.post("/api/transactions/<transaction_id>/override")
     @login_required
@@ -188,7 +207,7 @@ def register_routes(app: Flask) -> None:
     def api_notification_test():
         result = send_discord(
             _db_path(),
-            current_app.config["DISCORD_WEBHOOK_URL"],
+            get_runtime_setting(_db_path(), current_app.config, "DISCORD_WEBHOOK_URL"),
             {"content": f"Ledger notification test from {current_app.config['PUBLIC_URL']}"},
         )
         status_code = 200 if result["status"] in {"sent", "skipped"} else 502
@@ -199,7 +218,7 @@ def register_routes(app: Flask) -> None:
     def api_notification_review_needed():
         result = notify_review_needed(
             _db_path(),
-            current_app.config["DISCORD_WEBHOOK_URL"],
+            get_runtime_setting(_db_path(), current_app.config, "DISCORD_WEBHOOK_URL"),
             current_app.config["PUBLIC_URL"],
         )
         status_code = 200 if result["status"] in {"sent", "skipped"} else 502

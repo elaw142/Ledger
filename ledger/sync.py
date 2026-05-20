@@ -100,6 +100,10 @@ def _merchant(transaction: dict) -> Tuple[Optional[str], Optional[str]]:
 def _category(transaction: dict) -> Tuple[Optional[str], Optional[str]]:
     category = transaction.get("category")
     if isinstance(category, dict):
+        groups = category.get("groups") or {}
+        personal_finance = groups.get("personal_finance") if isinstance(groups, dict) else None
+        if isinstance(personal_finance, dict) and personal_finance.get("name"):
+            return personal_finance.get("_id") or personal_finance.get("id"), compact(personal_finance.get("name"))
         return category.get("_id") or category.get("id"), compact(category.get("name") or category.get("label"))
     if isinstance(category, str):
         return None, compact(category)
@@ -122,6 +126,13 @@ def _is_useful_category(category_name: Optional[str]) -> bool:
 
 def _source_merchant_key(merchant_name: Optional[str], description: str) -> str:
     return key(merchant_name or description)
+
+
+def _has_transactions(account: dict) -> bool:
+    attributes = account.get("attributes")
+    if attributes is None:
+        return True
+    return "TRANSACTIONS" in attributes
 
 
 def _effective_fields(con, merchant_key: str, transaction_id: str, merchant_name: Optional[str], category_name: Optional[str]):
@@ -327,6 +338,8 @@ def sync_akahu(
                     continue
                 _upsert_account(con, account)
                 accounts_seen += 1
+                if not _has_transactions(account):
+                    continue
                 transactions = client.transactions(account_id(account), since_days=since_days)
                 for transaction in transactions:
                     created, updated = _upsert_transaction(con, account, transaction)

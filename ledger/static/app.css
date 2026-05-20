@@ -357,6 +357,28 @@ tr:last-child td {
   gap: 10px;
 }
 
+.settings-form {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+  gap: 12px;
+  align-items: end;
+  margin-top: 18px;
+}
+
+.settings-form label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.settings-status {
+  margin-top: 12px;
+  color: var(--muted);
+  font-weight: 750;
+}
+
 pre {
   margin-top: 16px;
   overflow: auto;
@@ -424,7 +446,8 @@ pre {
   .status-strip,
   .two-column,
   .filters,
-  .review-form {
+  .review-form,
+  .settings-form {
     grid-template-columns: 1fr;
   }
 
@@ -433,4 +456,3 @@ pre {
     margin-top: 16px;
   }
 }
-

@@ -21,6 +21,33 @@ def test_auth_protects_api(tmp_path):
     assert client.get("/api/summary").status_code == 200
 
 
+def test_settings_api_stores_runtime_tokens(tmp_path):
+    database = str(tmp_path / "ledger.sqlite3")
+    app = create_app(
+        {
+            "TESTING": True,
+            "DATABASE": database,
+            "ADMIN_PASSWORD": "secret",
+            "PASSWORD_HASH": "",
+            "AKAHU_APP_TOKEN": "",
+            "AKAHU_USER_TOKEN": "",
+            "PUBLIC_URL": "http://ledger.test/",
+        }
+    )
+    client = app.test_client()
+    client.post("/login", data={"password": "secret"})
+
+    before = client.get("/api/settings").get_json()
+    after = client.post(
+        "/api/settings",
+        json={"AKAHU_APP_TOKEN": "app", "AKAHU_USER_TOKEN": "user"},
+    ).get_json()
+
+    assert before["akahu_app_token"] is False
+    assert after["akahu_app_token"] is True
+    assert after["akahu_user_token"] is True
+
+
 def test_notify_skips_when_review_queue_empty(tmp_path):
     database = str(tmp_path / "ledger.sqlite3")
     init_db(database)
@@ -66,4 +93,3 @@ def test_notify_sends_when_review_needed(tmp_path, monkeypatch):
     assert result["status"] == "sent"
     assert result["review_count"] == 1
     assert calls[0][1]["content"].startswith("Ledger has 1 transaction")
-

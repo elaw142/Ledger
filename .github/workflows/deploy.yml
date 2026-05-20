@@ -11,18 +11,19 @@ jobs:
     steps:
       - name: Deploy to server
         uses: appleboy/ssh-action@v1
+        env:
+          DEPLOY_AKAHU_APP_TOKEN: ${{ secrets.AKAHU_APP_TOKEN }}
+          DEPLOY_AKAHU_USER_TOKEN: ${{ secrets.AKAHU_USER_TOKEN }}
+          DEPLOY_DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          DEPLOY_LEDGER_ADMIN_PASSWORD: ${{ secrets.LEDGER_ADMIN_PASSWORD }}
+          DEPLOY_LEDGER_PASSWORD_HASH: ${{ secrets.LEDGER_PASSWORD_HASH }}
         with:
           host: ${{ vars.SERVER_HOST }}
           username: opc
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+          envs: DEPLOY_AKAHU_APP_TOKEN,DEPLOY_AKAHU_USER_TOKEN,DEPLOY_DISCORD_WEBHOOK_URL,DEPLOY_LEDGER_ADMIN_PASSWORD,DEPLOY_LEDGER_PASSWORD_HASH
           script: |
             set -e
-            mkdir -p ~/.ssh
-            chmod 700 ~/.ssh
-            if ! grep -q "elaw142@aucklanduni.ac.nz" ~/.ssh/authorized_keys 2>/dev/null; then
-              echo "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOkpODuVRsffaR/Cc/e/Hz6driib+xB4qQOnSawUZ4PB elaw142@aucklanduni.ac.nz" >> ~/.ssh/authorized_keys
-              chmod 600 ~/.ssh/authorized_keys
-            fi
             APP_DIR=~/finance/ledger
             if [ ! -d "$APP_DIR/.git" ]; then
               rm -rf "$APP_DIR"
@@ -46,6 +47,51 @@ jobs:
                 echo "DISCORD_WEBHOOK_URL="
               } > .env
             fi
+            python3 - <<'PY'
+            import os
+            import secrets
+            from pathlib import Path
+
+            path = Path(".env")
+            values = {}
+            for line in path.read_text().splitlines():
+                if "=" in line and not line.lstrip().startswith("#"):
+                    key, value = line.split("=", 1)
+                    values[key] = value
+
+            values.setdefault("LEDGER_PUBLIC_URL", "https://ledger.emlw.dev/")
+            values.setdefault("LEDGER_DATABASE", "/home/opc/finance/ledger/ledger.sqlite3")
+            values["LEDGER_SECRET_KEY"] = values.get("LEDGER_SECRET_KEY") or secrets.token_urlsafe(48)
+            values["LEDGER_ADMIN_PASSWORD"] = (
+                os.environ.get("DEPLOY_LEDGER_ADMIN_PASSWORD")
+                or values.get("LEDGER_ADMIN_PASSWORD")
+                or secrets.token_urlsafe(24)
+            )
+            if os.environ.get("DEPLOY_LEDGER_PASSWORD_HASH"):
+                values["LEDGER_PASSWORD_HASH"] = os.environ["DEPLOY_LEDGER_PASSWORD_HASH"]
+            for key, env_key in {
+                "AKAHU_APP_TOKEN": "DEPLOY_AKAHU_APP_TOKEN",
+                "AKAHU_USER_TOKEN": "DEPLOY_AKAHU_USER_TOKEN",
+                "DISCORD_WEBHOOK_URL": "DEPLOY_DISCORD_WEBHOOK_URL",
+            }.items():
+                if os.environ.get(env_key):
+                    values[key] = os.environ[env_key]
+                else:
+                    values.setdefault(key, "")
+
+            order = [
+                "LEDGER_PUBLIC_URL",
+                "LEDGER_DATABASE",
+                "LEDGER_SECRET_KEY",
+                "LEDGER_ADMIN_PASSWORD",
+                "LEDGER_PASSWORD_HASH",
+                "AKAHU_APP_TOKEN",
+                "AKAHU_USER_TOKEN",
+                "DISCORD_WEBHOOK_URL",
+            ]
+            keys = [key for key in order if key in values] + sorted(set(values) - set(order))
+            path.write_text("".join(f"{key}={values[key]}\n" for key in keys))
+            PY
             set -a
             . ./.env
             set +a

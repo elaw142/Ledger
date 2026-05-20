@@ -43,6 +43,9 @@ class AkahuClient:
             if cursor:
                 request_params["cursor"] = cursor
             payload = self._get(path, request_params)
+            if isinstance(payload, list):
+                items.extend(payload)
+                break
             page_items = payload.get("items")
             if page_items is None:
                 page_items = payload.get("data")

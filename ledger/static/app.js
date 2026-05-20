@@ -3,6 +3,7 @@ const state = {
   categories: [],
   transactions: [],
   summary: null,
+  settings: null,
 };
 
 function money(cents, currency = "NZD") {
@@ -59,6 +60,16 @@ function renderStatus() {
     ? `${latest.status} at ${shortDate(latest.finished_at)}`
     : "No sync yet";
   document.querySelector("#review-count").textContent = String(state.summary?.review_count || 0);
+}
+
+function renderSettings() {
+  const node = document.querySelector("#settings-status");
+  if (!node || !state.settings) return;
+  node.textContent = [
+    `Akahu app token: ${state.settings.akahu_app_token ? "configured" : "missing"}`,
+    `Akahu user token: ${state.settings.akahu_user_token ? "configured" : "missing"}`,
+    `Discord: ${state.settings.discord_webhook_url ? "configured" : "missing"}`,
+  ].join(" | ");
 }
 
 function renderAccounts() {
@@ -177,7 +188,7 @@ function reviewMarkup(items, compact) {
             <strong>${escapeHtml(tx.effective_merchant)}</strong>
             <span class="pill">${escapeHtml(tx.review_reason || "review")}</span>
           </div>
-          <p class="meta">${shortDate(tx.date)} · ${escapeHtml(tx.description)} · ${money(tx.amount_cents, tx.currency)}</p>
+          <p class="meta">${shortDate(tx.date)} - ${escapeHtml(tx.description)} - ${money(tx.amount_cents, tx.currency)}</p>
           ${compact ? "" : reviewForm(tx)}
         </article>
       `,
@@ -214,15 +225,18 @@ async function approveReview(event) {
 }
 
 async function refresh() {
-  const [summary, accountData, categoryData] = await Promise.all([
+  const [summary, accountData, categoryData, settingsData] = await Promise.all([
     api("/api/summary"),
     api("/api/accounts"),
     api("/api/categories"),
+    api("/api/settings"),
   ]);
   state.summary = summary;
   state.accounts = accountData.accounts || [];
   state.categories = categoryData.categories || [];
+  state.settings = settingsData;
   renderStatus();
+  renderSettings();
   renderAccounts();
   renderCategorySpend();
   fillFilters();
@@ -241,10 +255,33 @@ async function syncNow(backfill = false) {
     settingsOutput(result);
     await refresh();
     await loadTransactions(activeView() === "review");
+  } catch (error) {
+    settingsOutput({ error: error.message });
   } finally {
     button.disabled = false;
     button.textContent = original;
   }
+}
+
+async function saveSettings(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const payload = {};
+  for (const field of ["AKAHU_APP_TOKEN", "AKAHU_USER_TOKEN", "DISCORD_WEBHOOK_URL"]) {
+    const value = form.elements[field].value.trim();
+    if (value) payload[field] = value;
+  }
+  if (!Object.keys(payload).length) {
+    settingsOutput({ status: "skipped", reason: "No values entered" });
+    return;
+  }
+  state.settings = await api("/api/settings", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+  form.reset();
+  renderSettings();
+  settingsOutput({ status: "saved", settings: state.settings });
 }
 
 function settingsOutput(value) {
@@ -273,6 +310,7 @@ async function boot() {
   document.querySelector("#sync-now")?.addEventListener("click", () => syncNow(false));
   document.querySelector("#sync-backfill")?.addEventListener("click", () => syncNow(true));
   document.querySelector("#review-list")?.addEventListener("submit", approveReview);
+  document.querySelector("#settings-form")?.addEventListener("submit", saveSettings);
   document.querySelector("#test-discord")?.addEventListener("click", async () => {
     settingsOutput(await api("/api/notifications/test", { method: "POST", body: "{}" }));
   });
@@ -285,4 +323,3 @@ boot().catch((error) => {
   settingsOutput({ error: error.message });
   console.error(error);
 });
-
